@@ -92,6 +92,8 @@ export interface AviratoReservation {
   // Nuevos campos para facturación
   billing_total?: number;
   is_fully_paid?: boolean;
+  // Campo para el nombre del operador/canal
+  operator_name?: string;
 }
 
 export interface AviratoReservationsResponse {
@@ -116,6 +118,16 @@ export interface AviratoRegime {
 export interface AviratoRegimesResponse {
   status: string;
   data: AviratoRegime[];
+}
+
+export interface AviratoOperator {
+  id: number;
+  name: string;
+}
+
+export interface AviratoOperatorsResponse {
+  status: string;
+  data: AviratoOperator[];
 }
 
 const API_BASE_URL = 'https://apiv3.avirato.com';
@@ -234,10 +246,22 @@ export class AviratoService {
         console.warn('Could not fetch regimes, will use regime codes instead:', error);
       }
       
+      // Obtener operadores una sola vez (opcional, si falla continúa sin nombres)
+      let operatorMap = new Map<number, string>();
+      try {
+        const operators = await this.getOperators(webCode);
+        operatorMap = new Map(operators.map(op => [op.id, op.name]));
+      } catch (error) {
+        console.warn('Could not fetch operators, will use operator IDs instead:', error);
+      }
+      
       // Obtener datos de facturación para cada reserva
       for (const reservation of allReservations) {
         // Agregar nombre del régimen
         reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
+        
+        // Agregar nombre del operador/canal
+        reservation.operator_name = operatorMap.get(reservation.operator_id) || `Operador ${reservation.operator_id}`;
         
         try {
           const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
@@ -317,6 +341,34 @@ export class AviratoService {
 
     const regimesResponse: AviratoRegimesResponse = await response.json();
     return regimesResponse.status === 'success' ? regimesResponse.data : [];
+  }
+
+  async getOperators(webCode: number): Promise<AviratoOperator[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/channel-manager/operators?${params}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch operators: ${response.statusText}`);
+    }
+
+    const operatorsResponse: AviratoOperatorsResponse = await response.json();
+    return operatorsResponse.status === 'success' ? operatorsResponse.data : [];
   }
 
   isAuthenticated(): boolean {

@@ -192,7 +192,7 @@ const Reservations = () => {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {reservation.origin || 'No disponible'}
+                          {reservation.operator_name || 'No disponible'}
                         </Badge>
                       </TableCell>
                       <TableCell>
