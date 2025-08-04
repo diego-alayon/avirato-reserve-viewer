@@ -230,9 +230,14 @@ export class AviratoService {
     const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate || new Date();
 
-    // Ensure we're working with local dates
+    // Ensure we're working with local dates - NO AJUSTAR las fechas recibidas
+    // El usuario selecciona exactamente las fechas que quiere
     const selectedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    console.log('=== FECHA CORREGIDA ===');
+    console.log('Usuario seleccionó del:', selectedStart.toISOString().split('T')[0]);
+    console.log('Usuario seleccionó hasta:', selectedEnd.toISOString().split('T')[0]);
 
     console.log('=== RESERVATION LOGIC DEBUG ===');
     console.log('INPUT DATES RECEIVED:');
