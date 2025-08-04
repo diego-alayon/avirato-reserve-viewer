@@ -252,16 +252,16 @@ export class AviratoService {
       end: selectedEnd.toISOString().split('T')[0] 
     });
 
-    // ESTRATEGIA: Para obtener TODAS las reservas activas durante el período,
-    // necesitamos buscar un rango mucho más amplio porque la API filtra por check-in
-    // Una reserva puede haber empezado meses antes pero seguir activa en nuestro período
+    // ESTRATEGIA RADICAL: Para obtener TODAS las reservas activas durante el período,
+    // La API solo filtra por check-in, así que necesitamos buscar TODO EL AÑO
+    // y luego filtrar por superposición de fechas localmente
+    
+    // Buscar todo el año 2025 para asegurar que no se escape ninguna reserva
+    const searchStart = new Date(2025, 0, 1); // 1 enero 2025
+    const searchEnd = new Date(2025, 11, 31); // 31 diciembre 2025
 
-    // Expandir el rango de búsqueda: 90 días antes del inicio hasta 90 días después del fin
-    const searchStart = new Date(selectedStart.getTime() - 90 * 24 * 60 * 60 * 1000);
-    const searchEnd = new Date(selectedEnd.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-    console.log('Expanded search period:', { searchStart, searchEnd });
-    console.log('Search period strings:', { 
+    console.log('RADICAL SEARCH: Buscando TODO EL AÑO 2025 para filtrar localmente');
+    console.log('Search period:', { 
       start: searchStart.toISOString().split('T')[0], 
       end: searchEnd.toISOString().split('T')[0] 
     });
