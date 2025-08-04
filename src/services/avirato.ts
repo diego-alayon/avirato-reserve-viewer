@@ -227,7 +227,7 @@ export class AviratoService {
       start_date: startDateStr,
       end_date: endDateStr,
       charges: 'false',
-      take: '100'
+      take: '500'  // Aumentar límite para capturar más reservas
     });
 
     const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
@@ -257,9 +257,15 @@ export class AviratoService {
 
     const reservationsData: AviratoReservationsResponse = await response.json();
     
+    console.log('API Response status:', reservationsData.status);
+    console.log('API Response meta:', reservationsData.meta);
+    console.log('Raw reservations count:', reservationsData.data?.length || 0);
+    
     // Enriquecer reservas con datos de facturación y regímenes
     if (reservationsData.status === 'success') {
       const allReservations = reservationsData.data.flat();
+      console.log('Total reservations after flattening:', allReservations.length);
+      console.log('Sample reservation IDs:', allReservations.slice(0, 5).map(r => r.reservationId));
       
       // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
       let regimeMap = new Map<string, string>();

@@ -69,6 +69,8 @@ const Reservations = () => {
   };
 
   // Filtrar reservas por término de búsqueda
+  console.log('Total reservations loaded:', reservations.length);
+  console.log('Search term:', searchTerm);
   const filteredReservations = reservations.filter(reservation => {
     if (!searchTerm) return true;
     
@@ -81,6 +83,7 @@ const Reservations = () => {
     return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            reservationId.includes(searchTerm);
   });
+  console.log('Filtered reservations count:', filteredReservations.length);
 
   const totalReservations = filteredReservations.length;
   const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
