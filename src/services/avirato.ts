@@ -224,68 +224,51 @@ export class AviratoService {
     console.log('Date strings for API:', { startDateStr, endDateStr });
     console.log('Fetching reservations with web_code:', webCode);
 
-    // Obtener reservas de TODOS los operadores
-    console.log('=== FETCHING ALL OPERATORS RESERVATIONS ===');
+    // Intentar con diferentes parámetros para obtener TODAS las reservas
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+      start_date: startDateStr,
+      end_date: endDateStr,
+      charges: 'false',
+      take: '100'  // API máximo es 100
+    });
+
+    const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
+    console.log('Request URL:', url);
     
-    const allReservations: AviratoReservation[] = [];
-    const operatorIds = [-1, 0, 1, 28, 1003]; // IDs de operadores identificados
-    
-    for (const operatorId of operatorIds) {
-      try {
-        console.log(`Fetching reservations for operator ID: ${operatorId}`);
-        
-        const params = new URLSearchParams({
-          web_code: webCode.toString(),
-          start_date: startDateStr,
-          end_date: endDateStr,
-          charges: 'false',
-          take: '100',
-          operator_id: operatorId.toString()
-        });
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
 
-        const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
-        console.log(`Request URL for operator ${operatorId}:`, url);
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${this.token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        });
+    console.log('Reservations response status:', response.status);
 
-        console.log(`Response status for operator ${operatorId}:`, response.status);
-
-        if (response.ok) {
-          const operatorReservations: AviratoReservationsResponse = await response.json();
-          if (operatorReservations.status === 'success' && operatorReservations.data) {
-            const flatReservations = operatorReservations.data.flat();
-            console.log(`Found ${flatReservations.length} reservations for operator ${operatorId}`);
-            allReservations.push(...flatReservations);
-          }
-        } else {
-          console.warn(`Failed to fetch reservations for operator ${operatorId}:`, response.statusText);
-        }
-      } catch (error) {
-        console.warn(`Error fetching reservations for operator ${operatorId}:`, error);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to fetch reservations. Response body:', errorText);
+      
+      if (response.status === 401) {
+        this.clearToken();
+        throw new Error('Token expired. Please authenticate again.');
       }
+      throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
     }
+
+    const reservationsData: AviratoReservationsResponse = await response.json();
+    console.log('=== API RESPONSE DEBUG ===');
+    console.log('API Response status:', reservationsData.status);
+    console.log('API Response meta:', reservationsData.meta);
+    console.log('Raw data structure:', typeof reservationsData.data, Array.isArray(reservationsData.data));
+    console.log('Raw reservations data length:', reservationsData.data?.length || 0);
     
-    console.log(`Total reservations from all operators: ${allReservations.length}`);
-    
-    // Crear respuesta consolidada
-    const reservationsData: AviratoReservationsResponse = {
-      status: 'success',
-      data: [allReservations],
-      meta: {
-        take: 100,
-        itemCount: allReservations.length,
-        itemRemaining: 0,
-        hasNextPage: false,
-        cursor: ''
-      }
-    };
+    if (reservationsData.data && reservationsData.data.length > 0) {
+      console.log('First group length:', reservationsData.data[0]?.length || 0);
+      console.log('Sample from first group:', reservationsData.data[0]?.slice(0, 2));
+    }
     
     // Enriquecer reservas con datos de facturación y regímenes
     if (reservationsData.status === 'success') {
