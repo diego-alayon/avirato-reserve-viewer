@@ -328,7 +328,7 @@ const Reservations = () => {
                   {filteredReservations.map((reservation) => (
                     <TableRow key={reservation.reservation_id || reservation.reservationId}>
                       <TableCell className="font-medium">
-                        #{reservation.reservation_id || reservation.reservationId}
+                        {reservation.reservation_id || reservation.reservationId}
                       </TableCell>
                       <TableCell>
                         {reservation.client?.name && reservation.client?.surname 
