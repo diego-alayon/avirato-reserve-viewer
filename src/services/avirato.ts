@@ -12,6 +12,23 @@ export interface AviratoAuthResponse {
   };
 }
 
+export interface AviratoClient {
+  client_doc: string;
+  name: string;
+  surname: string;
+  state: string;
+  country: string;
+  city: string;
+  address: string;
+  zip_code: string;
+  email: string;
+  phone: string;
+  observations: string;
+  business: boolean;
+  vip: boolean;
+  birth_date: string;
+}
+
 export interface AviratoReservation {
   reservation_id: number;
   rate_id: number;
@@ -39,7 +56,7 @@ export interface AviratoReservation {
   master_reservation_id: number;
   created_at: string;
   guests: any[];
-  client: any;
+  client: AviratoClient;
   charges: any[];
   predefinedCharges: any[];
 }

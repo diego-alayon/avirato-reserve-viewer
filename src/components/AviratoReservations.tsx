@@ -155,12 +155,13 @@ export const AviratoReservations = () => {
                   <TableRow>
                     <TableHead>ID Reserva</TableHead>
                     <TableHead>Cliente</TableHead>
+                    <TableHead>Teléfono</TableHead>
                     <TableHead>Check-in</TableHead>
                     <TableHead>Check-out</TableHead>
                     <TableHead>Huéspedes</TableHead>
                     <TableHead>Precio</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Régimen</TableHead>
+                    <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -170,7 +171,13 @@ export const AviratoReservations = () => {
                         #{reservation.reservation_id}
                       </TableCell>
                       <TableCell>
-                        {reservation.client_name || reservation.client_id || 'No disponible'}
+                        {reservation.client?.name && reservation.client?.surname 
+                          ? `${reservation.client.name} ${reservation.client.surname}`
+                          : reservation.client_name || reservation.client_id || 'No disponible'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {reservation.client?.phone || 'No disponible'}
                       </TableCell>
                       <TableCell>
                         {new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
@@ -204,7 +211,9 @@ export const AviratoReservations = () => {
                           {reservation.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{reservation.regime}</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {reservation.client?.observations || reservation.observations || 'Sin observaciones'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
