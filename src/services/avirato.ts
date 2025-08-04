@@ -285,26 +285,46 @@ export class AviratoService {
         console.warn('Could not fetch regimes, will use regime codes instead:', error);
       }
       
-      // Obtener operadores una sola vez (opcional, si falla continúa sin nombres)
-      let operatorMap = new Map<number, string>();
+      // Mapeo manual de operadores específicos del establecimiento
+      const operatorMap = new Map<number, string>([
+        [-1, "Motor de reservas"], // Cliente Hotel/Web directo
+        [0, "Todos los operadores"],
+        [1, "Channel Manager Booking.com"],
+        [28, "Channel Manager Google"],
+        // Agregar otros operadores específicos según se identifiquen
+      ]);
+      
+      // Intentar obtener operadores de la API como fallback
       try {
         const operators = await this.getOperators(webCode);
         console.log('=== OPERATORS DEBUG ===');
-        console.log('Total operators received:', operators.length);
-        console.log('All operators:', operators.map(op => `ID: ${op.id}, Name: ${op.name}`));
-        operatorMap = new Map(operators.map(op => [op.id, op.name]));
+        console.log('Total operators received from API:', operators.length);
+        console.log('API operators sample:', operators.slice(0, 10).map(op => `ID: ${op.id}, Name: ${op.name}`));
+        
+        // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
+        operators.forEach(op => {
+          if (!operatorMap.has(op.id)) {
+            operatorMap.set(op.id, op.name);
+          }
+        });
       } catch (error) {
         console.warn('Could not fetch operators, will use operator IDs instead:', error);
       }
       
       // Obtener datos de facturación para cada reserva
+      console.log('=== RESERVATION OPERATORS DEBUG ===');
+      const uniqueOperatorIds = [...new Set(allReservations.map(r => r.operator_id || r.operatorId))];
+      console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
+      
       for (const reservation of allReservations) {
         // Agregar nombre del régimen
         reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
         
         // Agregar nombre del operador/canal
         const operatorId = reservation.operator_id || reservation.operatorId;
-        reservation.operator_name = operatorMap.get(operatorId) || operatorMap.get(-1) || `Operador ${operatorId}`;
+        console.log(`Reservation ${reservation.reservationId}: operatorId = ${operatorId}`);
+        reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
+        console.log(`Mapped to: ${reservation.operator_name}`);
         
         try {
           const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
