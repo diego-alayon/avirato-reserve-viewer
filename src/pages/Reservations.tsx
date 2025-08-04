@@ -76,8 +76,10 @@ const Reservations = () => {
       ? `${reservation.client.name} ${reservation.client.surname}`
       : reservation.client_name || reservation.client_id || '';
     
+    const reservationId = reservation.reservation_id?.toString() || '';
+    
     return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           reservation.reservation_id.toString().includes(searchTerm);
+           reservationId.includes(searchTerm);
   });
 
   const totalReservations = filteredReservations.length;
