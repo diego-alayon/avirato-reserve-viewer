@@ -67,7 +67,22 @@ const Reservations = () => {
       console.log('Using selected date range:');
       console.log('FROM:', dateRange.from.toISOString());
       console.log('TO:', dateRange.to.toISOString());
-      fetchReservations(dateRange.from, dateRange.to);
+      
+      // CORRECCIÓN: Asegurar que las fechas sean exactamente las seleccionadas
+      // El calendario puede estar pasando fechas con timezone issues
+      const correctedFrom = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+      const correctedTo = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+      
+      console.log('CORRECTED FROM:', correctedFrom.toISOString());
+      console.log('CORRECTED TO:', correctedTo.toISOString());
+      console.log('Date range corrected:', {
+        originalFrom: dateRange.from.toDateString(),
+        originalTo: dateRange.to.toDateString(),
+        correctedFrom: correctedFrom.toDateString(),
+        correctedTo: correctedTo.toDateString()
+      });
+      
+      fetchReservations(correctedFrom, correctedTo);
     } else {
       console.log('Using default date range (last 30 days)');
       // Si no hay fechas seleccionadas, usar valores por defecto (últimos 30 días)
