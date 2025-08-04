@@ -224,11 +224,13 @@ export class AviratoService {
     console.log('Date strings for API:', { startDateStr, endDateStr });
     console.log('Fetching reservations with web_code:', webCode);
 
-    // Intentar con diferentes parámetros para obtener TODAS las reservas
+    // Configurar parámetros según la documentación de Avirato
     const params = new URLSearchParams({
       web_code: webCode.toString(),
       start_date: startDateStr,
       end_date: endDateStr,
+      date_type: 'DEFAULT', // Usar el tipo de fecha por defecto
+      status: 'TODAS', // Obtener todas las reservas independientemente del estado
       charges: 'false',
       take: '100'  // API máximo es 100
     });
