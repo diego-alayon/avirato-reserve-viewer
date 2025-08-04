@@ -4,12 +4,7 @@ export interface AviratoCredentials {
 }
 
 export interface AviratoAuthResponse {
-  status: string;
-  data: {
-    token: string;
-    web_codes: number[];
-    expiry: string;
-  };
+  token: string;
 }
 
 export interface AviratoReservation {
@@ -34,7 +29,7 @@ export interface AviratoReservationsResponse {
   data: AviratoReservation[];
 }
 
-const API_BASE_URL = 'https://apiv2.avirato.com';
+const API_BASE_URL = 'https://apiv3.avirato.com';
 
 export class AviratoService {
   private token: string | null = null;
@@ -42,9 +37,9 @@ export class AviratoService {
   private tokenExpiry: Date | null = null;
 
   async authenticate(credentials: AviratoCredentials): Promise<AviratoAuthResponse> {
-    console.log('Attempting authentication with:', { email: credentials.email, url: `${API_BASE_URL}/auth/login` });
+    console.log('Attempting authentication with:', { email: credentials.email, url: `${API_BASE_URL}/v3/token/login` });
     
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/v3/token/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,16 +59,15 @@ export class AviratoService {
 
     const data: AviratoAuthResponse = await response.json();
     
-    if (data.status === 'success') {
-      this.token = data.data.token;
-      this.webCodes = data.data.web_codes;
-      this.tokenExpiry = new Date(data.data.expiry);
-      
-      // Store token in localStorage for persistence
-      localStorage.setItem('avirato_token', this.token);
-      localStorage.setItem('avirato_web_codes', JSON.stringify(this.webCodes));
-      localStorage.setItem('avirato_token_expiry', data.data.expiry);
-    }
+    // Store token directly since the response only contains the token
+    this.token = data.token;
+    this.webCodes = []; // No web codes in v3 API
+    this.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // Set expiry to 24 hours from now
+    
+    // Store token in localStorage for persistence
+    localStorage.setItem('avirato_token', this.token);
+    localStorage.setItem('avirato_web_codes', JSON.stringify(this.webCodes));
+    localStorage.setItem('avirato_token_expiry', this.tokenExpiry.toISOString());
 
     return data;
   }
@@ -83,7 +77,7 @@ export class AviratoService {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
-    const response = await fetch(`${API_BASE_URL}/reservation`, {
+    const response = await fetch(`${API_BASE_URL}/v3/reservation`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.token}`,
