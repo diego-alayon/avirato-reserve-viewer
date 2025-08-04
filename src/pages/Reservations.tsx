@@ -196,22 +196,30 @@ const Reservations = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {reservation.check_in_date ? 
-                          new Date(reservation.check_in_date.replace(' ', 'T')).toLocaleDateString('es-ES', {
+                        {(() => {
+                          console.log('Check-in date raw:', reservation.check_in_date);
+                          if (!reservation.check_in_date) return 'No disponible';
+                          const date = new Date(reservation.check_in_date);
+                          console.log('Check-in date parsed:', date);
+                          return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
-                          }) : 'No disponible'
-                        }
+                          });
+                        })()}
                       </TableCell>
                       <TableCell>
-                        {reservation.check_out_date ? 
-                          new Date(reservation.check_out_date.replace(' ', 'T')).toLocaleDateString('es-ES', {
+                        {(() => {
+                          console.log('Check-out date raw:', reservation.check_out_date);
+                          if (!reservation.check_out_date) return 'No disponible';
+                          const date = new Date(reservation.check_out_date);
+                          console.log('Check-out date parsed:', date);
+                          return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
-                          }) : 'No disponible'
-                        }
+                          });
+                        })()}
                       </TableCell>
                       <TableCell>
                         {reservation.regime_name || reservation.regime}
