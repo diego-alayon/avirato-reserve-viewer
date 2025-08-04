@@ -291,6 +291,7 @@ export class AviratoService {
         [0, "Todos los operadores"],
         [1, "Channel Manager Booking.com"],
         [28, "Channel Manager Google"],
+        [1003, "Travelzoo"], // Basado en los logs
         // Agregar otros operadores específicos según se identifiquen
       ]);
       
@@ -299,7 +300,6 @@ export class AviratoService {
         const operators = await this.getOperators(webCode);
         console.log('=== OPERATORS DEBUG ===');
         console.log('Total operators received from API:', operators.length);
-        console.log('API operators sample:', operators.slice(0, 10).map(op => `ID: ${op.id}, Name: ${op.name}`));
         
         // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
         operators.forEach(op => {
@@ -327,7 +327,8 @@ export class AviratoService {
         console.log(`Mapped to: ${reservation.operator_name}`);
         
         try {
-          const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
+          const reservationId = reservation.reservation_id || reservation.reservationId;
+          const billingData = await this.getBillingForReservation(reservationId, webCode);
           if (billingData && billingData.length > 0) {
             // Sumar todos los totales de las facturas de esta reserva
             const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
