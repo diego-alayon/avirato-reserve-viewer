@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
   const navigate = useNavigate();
-  const [dateRange, setDateRange] = useState<{from: Date, to: Date}>({
+  const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 días atrás
     to: new Date() // hoy
   });
@@ -33,14 +33,19 @@ const Reservations = () => {
     navigate('/login');
   };
 
-  const handleDateRangeChange = (range: {from: Date | undefined, to: Date | undefined}) => {
-    if (range.from && range.to) {
-      setDateRange({ from: range.from, to: range.to });
+  const handleDateRangeChange = (range: {from: Date | undefined, to: Date | undefined} | undefined) => {
+    if (range) {
+      setDateRange(range);
     }
   };
 
   const handleFetchReservations = () => {
-    fetchReservations(dateRange.from, dateRange.to);
+    if (dateRange.from && dateRange.to) {
+      fetchReservations(dateRange.from, dateRange.to);
+    } else {
+      // Si no hay fechas seleccionadas, usar valores por defecto
+      fetchReservations();
+    }
   };
 
   const totalReservations = reservations.length;
@@ -103,11 +108,11 @@ const Reservations = () => {
                     variant="outline"
                     size="sm"
                     className={cn(
-                      "justify-start text-left font-normal",
-                      !dateRange && "text-muted-foreground"
+                      "justify-start text-left font-normal w-[280px]",
+                      !dateRange?.from && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="h-4 w-4" />
+                    <CalendarIcon className="h-4 w-4 mr-2" />
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
@@ -131,18 +136,19 @@ const Reservations = () => {
                     onSelect={handleDateRangeChange}
                     numberOfMonths={2}
                     className={cn("p-3 pointer-events-auto")}
+                    disabled={(date) => date > new Date()}
                   />
                 </PopoverContent>
               </Popover>
               
               <Button 
                 onClick={handleFetchReservations}
-                disabled={isLoading}
+                disabled={isLoading || (!dateRange?.from || !dateRange?.to)}
                 variant="gradient"
                 size="sm"
               >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Cargando...' : 'Cargar Reservas'}
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? 'Cargando...' : 'Buscar Reservas'}
               </Button>
               <Button 
                 onClick={handleLogout}
