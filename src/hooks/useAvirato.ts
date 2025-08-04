@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { aviratoService, type AviratoCredentials, type AviratoReservation } from '@/services/avirato';
 import { useToast } from '@/hooks/use-toast';
 
@@ -7,6 +7,15 @@ export const useAvirato = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [reservations, setReservations] = useState<AviratoReservation[]>([]);
   const { toast } = useToast();
+
+  // Verificar autenticación al cargar el hook
+  useEffect(() => {
+    const checkAuthStatus = () => {
+      const authStatus = aviratoService.isAuthenticated();
+      setIsAuthenticated(authStatus);
+    };
+    checkAuthStatus();
+  }, []);
 
   const authenticate = useCallback(async (credentials: AviratoCredentials) => {
     setIsLoading(true);
