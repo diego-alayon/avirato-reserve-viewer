@@ -124,7 +124,15 @@ export class AviratoService {
 
     console.log('Fetching reservations with web_code:', webCode, 'from:', startDate, 'to:', endDate);
 
-    const url = `${API_BASE_URL}/v3/reservation/dates?web_code=${webCode}&start_date=${startDate}&end_date=${endDate}`;
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+      start_date: startDate,
+      end_date: endDate,
+      charges: 'false',
+      take: '100'
+    });
+
+    const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
     
     const response = await fetch(url, {
       method: 'GET',
