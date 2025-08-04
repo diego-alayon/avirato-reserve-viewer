@@ -83,7 +83,17 @@ export class AviratoService {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
-    const response = await fetch(`${API_BASE_URL}/v3/reservation`, {
+    // Get reservations from the last 30 days to today
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+    const endDate = today.toISOString().split('T')[0];
+
+    console.log('Fetching reservations from:', startDate, 'to:', endDate);
+
+    const response = await fetch(`${API_BASE_URL}/v3/reservation/dates?start_date=${startDate}&end_date=${endDate}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.token}`,
@@ -91,12 +101,17 @@ export class AviratoService {
       },
     });
 
+    console.log('Reservations response status:', response.status);
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to fetch reservations. Response body:', errorText);
+      
       if (response.status === 401) {
         this.clearToken();
         throw new Error('Token expired. Please authenticate again.');
       }
-      throw new Error(`Failed to fetch reservations: ${response.statusText}`);
+      throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
