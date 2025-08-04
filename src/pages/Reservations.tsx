@@ -326,7 +326,7 @@ const Reservations = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.reservation_id || reservation.reservationId} className="h-12">
+                    <TableRow key={reservation.reservation_id || reservation.reservationId} className="h-12 px-0">
                       <TableCell className="font-medium py-2 px-2">
                         {reservation.reservation_id || reservation.reservationId}
                       </TableCell>
