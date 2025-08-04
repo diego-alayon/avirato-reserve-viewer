@@ -309,42 +309,42 @@ const Reservations = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID Reserva</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Canal</TableHead>
-                    <TableHead>Check-in</TableHead>
-                    <TableHead>Check-out</TableHead>
-                    <TableHead>Régimen</TableHead>
-                    <TableHead>Huéspedes</TableHead>
-                    <TableHead>Precio</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Estado de Pago</TableHead>
-                    <TableHead>Importe Pendiente</TableHead>
-                    <TableHead>Observaciones</TableHead>
+                    <TableHead className="h-10 px-2">ID Reserva</TableHead>
+                    <TableHead className="h-10 px-2">Cliente</TableHead>
+                    <TableHead className="h-10 px-2">Teléfono</TableHead>
+                    <TableHead className="h-10 px-2">Canal</TableHead>
+                    <TableHead className="h-10 px-2">Check-in</TableHead>
+                    <TableHead className="h-10 px-2">Check-out</TableHead>
+                    <TableHead className="h-10 px-2">Régimen</TableHead>
+                    <TableHead className="h-10 px-2">Huéspedes</TableHead>
+                    <TableHead className="h-10 px-2">Precio</TableHead>
+                    <TableHead className="h-10 px-2">Estado</TableHead>
+                    <TableHead className="h-10 px-2">Estado de Pago</TableHead>
+                    <TableHead className="h-10 px-2">Importe Pendiente</TableHead>
+                    <TableHead className="h-10 px-2">Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.reservation_id || reservation.reservationId}>
-                      <TableCell className="font-medium">
+                    <TableRow key={reservation.reservation_id || reservation.reservationId} className="h-12">
+                      <TableCell className="font-medium py-2 px-2">
                         {reservation.reservation_id || reservation.reservationId}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {reservation.client?.name && reservation.client?.surname 
                           ? `${reservation.client.name} ${reservation.client.surname}`
                           : reservation.client_name || reservation.client_id || "No disponible"
                         }
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {reservation.client?.phone || "No disponible"}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         <Badge variant="outline">
                           {reservation.operator_name || "No disponible"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {(() => {
                           const checkInDate = reservation.checkInDate || reservation.check_in_date;
                           if (!checkInDate) return "No disponible";
@@ -356,7 +356,7 @@ const Reservations = () => {
                           });
                         })()}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {(() => {
                           const checkOutDate = reservation.checkOutDate || reservation.check_out_date;
                           if (!checkOutDate) return "No disponible";
@@ -368,17 +368,17 @@ const Reservations = () => {
                           });
                         })()}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {reservation.regime_name || reservation.regime}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap py-2 px-2">
                         {reservation.adults} adultos
                         {reservation.children > 0 && `, ${reservation.children} niños`}
                       </TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="font-semibold py-2 px-2">
                         €{reservation.price}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2 px-2">
                         <Badge 
                           variant={
                             reservation.status.toLowerCase().includes('confirmada') 
@@ -389,7 +389,7 @@ const Reservations = () => {
                           {reservation.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-2 px-2">
                         <Badge 
                           variant={reservation.is_fully_paid !== undefined 
                             ? (reservation.is_fully_paid ? 'default' : 'destructive')
@@ -402,13 +402,13 @@ const Reservations = () => {
                           }
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-semibold">
+                      <TableCell className="font-semibold py-2 px-2">
                         {reservation.billing_total !== undefined 
                           ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
                           : '€0.00'
                         }
                       </TableCell>
-                      <TableCell className="max-w-xs truncate whitespace-nowrap">
+                      <TableCell className="max-w-xs truncate whitespace-nowrap py-2 px-2">
                         {reservation.client?.observations || reservation.observations || "Sin observaciones"}
                       </TableCell>
                     </TableRow>
