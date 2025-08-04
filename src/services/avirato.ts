@@ -193,7 +193,7 @@ export class AviratoService {
     return data;
   }
 
-  async getReservations(): Promise<AviratoReservationsResponse> {
+  async getReservations(startDate?: Date, endDate?: Date): Promise<AviratoReservationsResponse> {
     if (!this.isAuthenticated()) {
       throw new Error('Not authenticated. Please authenticate first.');
     }
@@ -207,20 +207,19 @@ export class AviratoService {
     // Use the first web_code
     const webCode = webCodes[0];
 
-    // Get reservations from the last 30 days to today
-    const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
+    // Use provided dates or default to last 30 days
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = endDate || new Date();
 
-    const startDate = thirtyDaysAgo.toISOString().split('T')[0];
-    const endDate = today.toISOString().split('T')[0];
+    const startDateStr = start.toISOString().split('T')[0];
+    const endDateStr = end.toISOString().split('T')[0];
 
-    console.log('Fetching reservations with web_code:', webCode, 'from:', startDate, 'to:', endDate);
+    console.log('Fetching reservations with web_code:', webCode, 'from:', startDateStr, 'to:', endDateStr);
 
     const params = new URLSearchParams({
       web_code: webCode.toString(),
-      start_date: startDate,
-      end_date: endDate,
+      start_date: startDateStr,
+      end_date: endDateStr,
       charges: 'false',
       take: '100'
     });

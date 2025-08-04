@@ -2,10 +2,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   RefreshCw, 
   LogOut, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   TrendingUp, 
   Users, 
   CreditCard,
@@ -13,14 +15,32 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
+import { useState } from 'react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
   const navigate = useNavigate();
+  const [dateRange, setDateRange] = useState<{from: Date, to: Date}>({
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 días atrás
+    to: new Date() // hoy
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleDateRangeChange = (range: {from: Date | undefined, to: Date | undefined}) => {
+    if (range.from && range.to) {
+      setDateRange({ from: range.from, to: range.to });
+    }
+  };
+
+  const handleFetchReservations = () => {
+    fetchReservations(dateRange.from, dateRange.to);
   };
 
   const totalReservations = reservations.length;
@@ -33,7 +53,7 @@ const Reservations = () => {
     {
       title: "Total Reservas",
       value: totalReservations,
-      icon: Calendar,
+      icon: CalendarIcon,
       color: "text-primary"
     },
     {
@@ -76,8 +96,47 @@ const Reservations = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Date Range Picker */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !dateRange && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
+                          {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
+                        </>
+                      ) : (
+                        format(dateRange.from, "dd/MM/yyyy", { locale: es })
+                      )
+                    ) : (
+                      <span>Seleccionar fechas</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={handleDateRangeChange}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              
               <Button 
-                onClick={fetchReservations}
+                onClick={handleFetchReservations}
                 disabled={isLoading}
                 variant="gradient"
                 size="sm"
@@ -140,15 +199,15 @@ const Reservations = () => {
           <CardContent>
             {reservations.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
                   No hay reservas cargadas
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Haz clic en "Cargar Reservas" para ver las reservas de Avirato
+                  Selecciona un rango de fechas y haz clic en "Cargar Reservas"
                 </p>
                 <Button 
-                  onClick={fetchReservations}
+                  onClick={handleFetchReservations}
                   disabled={isLoading}
                   variant="hero"
                 >

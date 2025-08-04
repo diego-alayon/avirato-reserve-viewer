@@ -45,7 +45,7 @@ export const useAvirato = () => {
     }
   }, [toast]);
 
-  const fetchReservations = useCallback(async () => {
+  const fetchReservations = useCallback(async (startDate?: Date, endDate?: Date) => {
     if (!isAuthenticated) {
       toast({
         title: "No autenticado",
@@ -57,7 +57,7 @@ export const useAvirato = () => {
 
     setIsLoading(true);
     try {
-      const response = await aviratoService.getReservations();
+      const response = await aviratoService.getReservations(startDate, endDate);
       
       if (response.status === 'success') {
         // Flatten the nested arrays to get all reservations
