@@ -222,50 +222,114 @@ export class AviratoService {
     console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
     console.log('Fetching reservations with web_code:', webCode, 'from:', startDateStr, 'to:', endDateStr);
 
-    const params = new URLSearchParams({
-      web_code: webCode.toString(),
-      start_date: startDateStr,
-      end_date: endDateStr,
-      charges: 'false',
-      take: '100'  // API máximo es 100
-    });
-
-    const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
+    // Obtener reservas de todos los operadores
+    const allReservations: AviratoReservation[] = [];
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    });
-
-    console.log('Reservations response status:', response.status);
-    console.log('Request URL:', url);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to fetch reservations. Response body:', errorText);
+    try {
+      // Obtener lista de operadores
+      const operators = await this.getOperators(webCode);
+      console.log('Total operators found:', operators.length);
       
-      if (response.status === 401) {
-        this.clearToken();
-        throw new Error('Token expired. Please authenticate again.');
-      }
-      throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
-    }
+      // Hacer llamadas para cada operador
+      for (const operator of operators) {
+        try {
+          const params = new URLSearchParams({
+            web_code: webCode.toString(),
+            start_date: startDateStr,
+            end_date: endDateStr,
+            charges: 'false',
+            take: '100',
+            operator_id: operator.id.toString()
+          });
 
-    const reservationsData: AviratoReservationsResponse = await response.json();
+          const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${this.token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const operatorReservations: AviratoReservationsResponse = await response.json();
+            if (operatorReservations.status === 'success' && operatorReservations.data) {
+              const flatReservations = operatorReservations.data.flat();
+              allReservations.push(...flatReservations);
+              console.log(`Found ${flatReservations.length} reservations from operator ${operator.name} (ID: ${operator.id})`);
+            }
+          }
+        } catch (error) {
+          console.warn(`Error fetching reservations for operator ${operator.name}:`, error);
+        }
+      }
+      
+      console.log('Total reservations from all operators:', allReservations.length);
+      
+    } catch (error) {
+      console.warn('Could not fetch operators, falling back to default endpoint:', error);
+      
+      // Fallback al endpoint original si falla la obtención de operadores
+      const params = new URLSearchParams({
+        web_code: webCode.toString(),
+        start_date: startDateStr,
+        end_date: endDateStr,
+        charges: 'false',
+        take: '100'
+      });
+
+      const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch reservations. Response body:', errorText);
+        
+        if (response.status === 401) {
+          this.clearToken();
+          throw new Error('Token expired. Please authenticate again.');
+        }
+        throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
+      }
+
+      const reservationsData: AviratoReservationsResponse = await response.json();
+      if (reservationsData.status === 'success' && reservationsData.data) {
+        allReservations.push(...reservationsData.data.flat());
+      }
+    }
     
-    console.log('API Response status:', reservationsData.status);
-    console.log('API Response meta:', reservationsData.meta);
-    console.log('Raw reservations count:', reservationsData.data?.length || 0);
+    // Crear respuesta consolidada
+    const consolidatedResponse: AviratoReservationsResponse = {
+      status: 'success',
+      data: [allReservations],
+      meta: {
+        take: 100,
+        itemCount: allReservations.length,
+        itemRemaining: 0,
+        hasNextPage: false,
+        cursor: ''
+      }
+    };
+    
+    console.log('API Response status:', consolidatedResponse.status);
+    console.log('API Response meta:', consolidatedResponse.meta);
+    console.log('Raw reservations count:', consolidatedResponse.data?.length || 0);
     
     // Enriquecer reservas con datos de facturación y regímenes
-    if (reservationsData.status === 'success') {
-      const allReservations = reservationsData.data.flat();
-      console.log('Total reservations after flattening:', allReservations.length);
-      console.log('Sample reservation IDs:', allReservations.slice(0, 5).map(r => r.reservationId));
+    if (consolidatedResponse.status === 'success') {
+      const enrichedReservations = consolidatedResponse.data.flat();
+      console.log('Total reservations after flattening:', enrichedReservations.length);
+      console.log('Sample reservation IDs:', enrichedReservations.slice(0, 5).map(r => r.reservationId));
       
       // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
       let regimeMap = new Map<string, string>();
@@ -286,7 +350,7 @@ export class AviratoService {
       }
       
       // Obtener datos de facturación para cada reserva
-      for (const reservation of allReservations) {
+      for (const reservation of enrichedReservations) {
         // Agregar nombre del régimen
         reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
         
@@ -313,7 +377,7 @@ export class AviratoService {
       }
     }
 
-    return reservationsData;
+    return consolidatedResponse;
   }
 
   async getBillingForReservation(reservationId: number, webCode: number): Promise<AviratoBillingData[]> {
