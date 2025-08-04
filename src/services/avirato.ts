@@ -71,6 +71,7 @@ export interface AviratoReservation {
   check_in_date: string;
   check_out_date: string;
   regime: string;
+  regime_name?: string;
   adults: number;
   children: number;
   additional_beds: number;
@@ -103,6 +104,18 @@ export interface AviratoReservationsResponse {
     hasNextPage: boolean;
     cursor: string;
   };
+}
+
+export interface AviratoRegime {
+  active_regime_id: number;
+  regime_id: string;
+  name: string;
+  active: number;
+}
+
+export interface AviratoRegimesResponse {
+  status: string;
+  data: AviratoRegime[];
 }
 
 const API_BASE_URL = 'https://apiv3.avirato.com';
@@ -208,12 +221,19 @@ export class AviratoService {
 
     const reservationsData: AviratoReservationsResponse = await response.json();
     
-    // Enriquecer reservas con datos de facturación
+    // Enriquecer reservas con datos de facturación y regímenes
     if (reservationsData.status === 'success') {
       const allReservations = reservationsData.data.flat();
       
+      // Obtener regímenes una sola vez
+      const regimes = await this.getRegimes(webCode);
+      const regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+      
       // Obtener datos de facturación para cada reserva
       for (const reservation of allReservations) {
+        // Agregar nombre del régimen
+        reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
+        
         try {
           const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
           if (billingData && billingData.length > 0) {
@@ -268,6 +288,30 @@ export class AviratoService {
 
     const billingResponse: AviratoBillingResponse = await response.json();
     return billingResponse.status === 'success' ? billingResponse.data : [];
+  }
+
+  async getRegimes(webCode: number): Promise<AviratoRegime[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const url = `${API_BASE_URL}/v3/regime`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch regimes: ${response.statusText}`);
+    }
+
+    const regimesResponse: AviratoRegimesResponse = await response.json();
+    return regimesResponse.status === 'success' ? regimesResponse.data : [];
   }
 
   isAuthenticated(): boolean {

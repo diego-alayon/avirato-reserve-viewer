@@ -166,6 +166,7 @@ const Reservations = () => {
                     <TableHead>Canal</TableHead>
                     <TableHead>Check-in</TableHead>
                     <TableHead>Check-out</TableHead>
+                    <TableHead>Régimen</TableHead>
                     <TableHead>Huéspedes</TableHead>
                     <TableHead>Precio</TableHead>
                     <TableHead>Estado</TableHead>
@@ -207,6 +208,9 @@ const Reservations = () => {
                           month: '2-digit',
                           year: 'numeric'
                         })}
+                      </TableCell>
+                      <TableCell>
+                        {reservation.regime_name || reservation.regime}
                       </TableCell>
                       <TableCell>
                         {reservation.adults} adultos
