@@ -383,8 +383,10 @@ export class AviratoService {
       console.log('=== ENRICHING RESERVATIONS ===');
       console.log('Total reservations to enrich:', allReservations.length);
       
-      // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
+      // TEMPORALMENTE DESHABILITADO - Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
       let regimeMap = new Map<string, string>();
+      console.log('SKIPPING regime fetch to avoid 403 errors');
+      /*
       try {
         const regimes = await this.getRegimes(webCode);
         regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
@@ -392,6 +394,7 @@ export class AviratoService {
       } catch (error) {
         console.warn('Could not fetch regimes, will use regime codes instead:', error);
       }
+      */
       
       // Mapeo manual de operadores específicos del establecimiento
       const operatorMap = new Map<number, string>([
@@ -431,6 +434,9 @@ export class AviratoService {
         const operatorId = reservation.operator_id || reservation.operatorId;
         reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
         
+        // TEMPORALMENTE DESHABILITADO - Obtener datos de facturación
+        console.log('SKIPPING billing fetch to avoid 404 errors');
+        /*
         try {
           const reservationId = reservation.reservation_id || reservation.reservationId;
           const billingData = await this.getBillingForReservation(reservationId, webCode);
@@ -449,6 +455,11 @@ export class AviratoService {
           reservation.billing_total = 0;
           reservation.is_fully_paid = true;
         }
+        */
+        
+        // Usar valores por defecto sin hacer llamadas a la API
+        reservation.billing_total = 0;
+        reservation.is_fully_paid = true;
       }
       
       console.log('=== ENRICHMENT COMPLETE ===');
