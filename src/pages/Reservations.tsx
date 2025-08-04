@@ -197,10 +197,9 @@ const Reservations = () => {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          console.log('Check-in date raw:', reservation.check_in_date);
-                          if (!reservation.check_in_date) return 'No disponible';
-                          const date = new Date(reservation.check_in_date);
-                          console.log('Check-in date parsed:', date);
+                          const checkInDate = reservation.checkInDate || reservation.check_in_date;
+                          if (!checkInDate) return 'No disponible';
+                          const date = new Date(checkInDate);
                           return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
@@ -210,10 +209,9 @@ const Reservations = () => {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          console.log('Check-out date raw:', reservation.check_out_date);
-                          if (!reservation.check_out_date) return 'No disponible';
-                          const date = new Date(reservation.check_out_date);
-                          console.log('Check-out date parsed:', date);
+                          const checkOutDate = reservation.checkOutDate || reservation.check_out_date;
+                          if (!checkOutDate) return 'No disponible';
+                          const date = new Date(checkOutDate);
                           return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
