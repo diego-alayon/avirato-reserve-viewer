@@ -79,6 +79,7 @@ export interface AviratoReservation {
   advance_type: number;
   operator_id: number;
   operator_reservation_id: string;
+  origin: string;
   is_paid: boolean;
   observations: string;
   master_reservation_id: number;

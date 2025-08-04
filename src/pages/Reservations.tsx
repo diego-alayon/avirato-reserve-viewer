@@ -191,10 +191,7 @@ const Reservations = () => {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {reservation.operator_id === 0 ? 'Directo' : 
-                           reservation.operator_id === 1 ? 'Booking.com' :
-                           reservation.operator_id === 1003 ? 'TravelZoo' :
-                           `Canal ${reservation.operator_id}`}
+                          {reservation.origin || 'No disponible'}
                         </Badge>
                       </TableCell>
                       <TableCell>
