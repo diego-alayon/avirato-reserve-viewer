@@ -255,7 +255,13 @@ export class AviratoService {
 
       const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
       console.log(`=== PAGE ${pageCount + 1} REQUEST ===`);
-      console.log('URL:', url);
+      console.log('URL completa:', url);
+      console.log('Parámetros enviados:', Object.fromEntries(params));
+      console.log('Headers enviados:', {
+        'Authorization': `Bearer ${this.token?.substring(0, 20)}...`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
       console.log('Cursor:', cursor || 'none (first page)');
       
       const response = await fetch(url, {
@@ -283,7 +289,26 @@ export class AviratoService {
       const pageData: AviratoReservationsResponse = await response.json();
       console.log(`=== PAGE ${pageCount + 1} RESPONSE ===`);
       console.log('Status:', pageData.status);
-      console.log('Meta:', pageData.meta);
+      console.log('Meta completo:', JSON.stringify(pageData.meta, null, 2));
+      console.log('Estructura de data:', pageData.data ? `Array de ${pageData.data.length} grupos` : 'Sin data');
+      
+      // Log detallado de cada grupo de reservas
+      if (pageData.data && pageData.data.length > 0) {
+        pageData.data.forEach((group, groupIndex) => {
+          console.log(`Grupo ${groupIndex + 1}: ${group.length} reservas`);
+          group.forEach((reservation, resIndex) => {
+            console.log(`  Reserva ${resIndex + 1}:`, {
+              id: reservation.reservation_id || reservation.reservationId,
+              client: reservation.client_name || reservation.clientName,
+              checkIn: reservation.check_in_date || reservation.checkInDate,
+              checkOut: reservation.check_out_date || reservation.checkOutDate,
+              status: reservation.status,
+              operator: reservation.operator_id || reservation.operatorId,
+              origin: reservation.origin
+            });
+          });
+        });
+      }
       
       if (pageData.status === 'success' && pageData.data) {
         // Contar reservas en esta página
@@ -326,6 +351,18 @@ export class AviratoService {
     console.log(`Total reservation groups collected: ${allReservationsData.length}`);
     const totalReservations = allReservationsData.reduce((sum, group) => sum + group.length, 0);
     console.log(`Total individual reservations: ${totalReservations}`);
+    console.log(`COMPARACIÓN: Esperadas 14 reservas, encontradas ${totalReservations} reservas`);
+    console.log(`DISCREPANCIA: ${totalReservations !== 14 ? 'SÍ - Investigar parámetros' : 'NO - OK'}`);
+    
+    if (totalReservations !== 14) {
+      console.log('=== ANÁLISIS DE DISCREPANCIA ===');
+      console.log('Posibles causas:');
+      console.log('1. Filtro de status demasiado restrictivo');
+      console.log('2. Problema con el rango de fechas');
+      console.log('3. Web code incorrecto');
+      console.log('4. Date type incorrecto');
+      console.log('5. Reservas en diferentes estados no incluidos');
+    }
 
     // Crear el objeto de respuesta consolidado según la documentación
     const consolidatedResponse: AviratoReservationsResponse = {
