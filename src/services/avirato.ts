@@ -467,7 +467,11 @@ export class AviratoService {
       reservation_id: reservationId.toString(),
     });
 
-    const url = `${API_BASE_URL}/v3/bill?${params}`;
+    // Endpoint correcto según la documentación
+    const url = `${API_BASE_URL}/v3/billing?${params}`;
+    console.log('=== FETCHING BILLING ===');
+    console.log('URL:', url);
+    console.log('Reservation ID:', reservationId);
     
     const response = await fetch(url, {
       method: 'GET',
@@ -495,7 +499,9 @@ export class AviratoService {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
-    const url = `${API_BASE_URL}/v3/regime`;
+    const url = `${API_BASE_URL}/v3/regime?web_code=${webCode}`;
+    console.log('=== FETCHING REGIMES ===');
+    console.log('URL:', url);
     
     const response = await fetch(url, {
       method: 'GET',
