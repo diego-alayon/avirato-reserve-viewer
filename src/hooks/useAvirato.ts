@@ -53,6 +53,8 @@ export const useAvirato = () => {
       if (response.status === 'success') {
         // Flatten the nested arrays to get all reservations
         const allReservations = response.data.flat();
+        console.log('Reservations data:', allReservations);
+        console.log('First reservation:', allReservations[0]);
         setReservations(allReservations);
         toast({
           title: "Reservas cargadas",

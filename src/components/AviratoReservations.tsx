@@ -169,7 +169,9 @@ export const AviratoReservations = () => {
                       <TableCell className="font-medium">
                         #{reservation.reservation_id}
                       </TableCell>
-                      <TableCell>{reservation.client_name}</TableCell>
+                      <TableCell>
+                        {reservation.client_name || reservation.client_id || 'No disponible'}
+                      </TableCell>
                       <TableCell>
                         {new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
                           day: '2-digit',
