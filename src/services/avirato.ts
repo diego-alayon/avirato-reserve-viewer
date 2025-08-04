@@ -230,62 +230,101 @@ export class AviratoService {
     const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate || new Date();
 
-    // Ensure we're working with local dates and extend the end date to cover the full day
-    const adjustedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1); // Add 1 day to include end date
+    // Ensure we're working with local dates
+    const selectedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
-    console.log('=== RESERVATION FETCH DEBUG ===');
-    console.log('Original dates:', { startDate, endDate });
-    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
+    console.log('=== RESERVATION LOGIC DEBUG ===');
+    console.log('Selected period:', { selectedStart, selectedEnd });
+    console.log('Selected period strings:', { 
+      start: selectedStart.toISOString().split('T')[0], 
+      end: selectedEnd.toISOString().split('T')[0] 
+    });
 
-    // Para obtener todas las reservas activas durante el período seleccionado,
-    // necesitamos hacer múltiples consultas para capturar:
-    // 1. Reservas con check-in en el rango seleccionado
-    // 2. Reservas con check-in anterior pero check-out en/después del rango
+    // ESTRATEGIA: Para obtener TODAS las reservas activas durante el período,
+    // necesitamos buscar un rango mucho más amplio porque la API filtra por check-in
+    // Una reserva puede haber empezado meses antes pero seguir activa en nuestro período
+
+    // Expandir el rango de búsqueda: 90 días antes del inicio hasta 90 días después del fin
+    const searchStart = new Date(selectedStart.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const searchEnd = new Date(selectedEnd.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    console.log('Expanded search period:', { searchStart, searchEnd });
+    console.log('Search period strings:', { 
+      start: searchStart.toISOString().split('T')[0], 
+      end: searchEnd.toISOString().split('T')[0] 
+    });
+
+    // Obtener todas las reservas en el rango expandido
+    let allRawReservations: any[] = [];
     
-    const allReservations = new Map<number, any>(); // Usar Map para evitar duplicados
-    
-    // Consulta 1: Reservas con check-in en el rango seleccionado (consulta actual)
     try {
-      const reservationsInRange = await this.fetchReservationsByCheckIn(webCode, adjustedStart, adjustedEnd);
-      reservationsInRange.forEach(reservation => {
-        allReservations.set(reservation.reservationId, reservation);
-      });
-      console.log('Reservations with check-in in range:', reservationsInRange.length);
+      console.log('=== FETCHING RAW RESERVATIONS ===');
+      allRawReservations = await this.fetchReservationsByCheckIn(webCode, searchStart, searchEnd);
+      console.log(`Total raw reservations fetched: ${allRawReservations.length}`);
+      
+      // Log sample of raw data
+      if (allRawReservations.length > 0) {
+        console.log('Sample raw reservations:');
+        allRawReservations.slice(0, 3).forEach((res, index) => {
+          console.log(`Sample ${index + 1}:`, {
+            id: res.reservationId,
+            checkIn: res.checkInDate || res.check_in_date,
+            checkOut: res.checkOutDate || res.check_out_date,
+            status: res.status
+          });
+        });
+      }
     } catch (error) {
-      console.error('Error fetching reservations in range:', error);
+      console.error('Error fetching raw reservations:', error);
+      // Return empty result if fetch fails
+      return {
+        status: 'success',
+        data: [[]],
+        meta: {
+          take: 100,
+          itemCount: 0,
+          itemRemaining: 0,
+          hasNextPage: false,
+          cursor: ''
+        }
+      };
     }
 
-    // Consulta 2: Reservas activas que empezaron antes del rango pero siguen activas
-    // Buscar reservas de los últimos 30 días antes del inicio del rango
-    const extendedStart = new Date(adjustedStart.getTime() - 30 * 24 * 60 * 60 * 1000);
-    try {
-      const activeReservations = await this.fetchReservationsByCheckIn(webCode, extendedStart, adjustedStart);
+    // FILTRAR: Solo las reservas que están activas durante el período seleccionado
+    console.log('=== FILTERING ACTIVE RESERVATIONS ===');
+    const activeReservations = allRawReservations.filter(reservation => {
+      const checkInDate = new Date(reservation.checkInDate || reservation.check_in_date);
+      const checkOutDate = new Date(reservation.checkOutDate || reservation.check_out_date);
       
-      // Filtrar solo las que tienen check-out durante o después del período seleccionado
-      const filteredActiveReservations = activeReservations.filter(reservation => {
-        const checkOutDate = new Date(reservation.checkOutDate || reservation.check_out_date);
-        return checkOutDate >= adjustedStart; // Check-out durante o después del inicio del rango
+      // Una reserva está activa durante [selectedStart, selectedEnd] si:
+      // check_in <= selectedEnd AND check_out >= selectedStart
+      const isActive = checkInDate <= selectedEnd && checkOutDate >= selectedStart;
+      
+      console.log(`Reservation ${reservation.reservationId}:`, {
+        checkIn: checkInDate.toISOString().split('T')[0],
+        checkOut: checkOutDate.toISOString().split('T')[0],
+        selectedPeriod: `${selectedStart.toISOString().split('T')[0]} to ${selectedEnd.toISOString().split('T')[0]}`,
+        isActive: isActive,
+        reason: isActive ? 'ACTIVE in period' : 'NOT active in period'
       });
       
-      filteredActiveReservations.forEach(reservation => {
-        allReservations.set(reservation.reservationId, reservation);
-      });
-      console.log('Active reservations from before range:', filteredActiveReservations.length);
-    } catch (error) {
-      console.error('Error fetching active reservations:', error);
-    }
+      return isActive;
+    });
 
-    const finalReservations = Array.from(allReservations.values());
-    console.log('Total unique reservations found:', finalReservations.length);
-    
-    // Enriquecer reservas con datos de facturación y regímenes
-    if (finalReservations.length > 0) {
+    console.log(`Filtered active reservations: ${activeReservations.length}`);
+    console.log('Active reservation IDs:', activeReservations.map(r => r.reservationId));
+
+    // Enriquecer reservas con datos adicionales
+    if (activeReservations.length > 0) {
+      console.log('=== ENRICHING RESERVATIONS ===');
+      
       // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
       let regimeMap = new Map<string, string>();
       try {
         const regimes = await this.getRegimes(webCode);
         regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+        console.log('Regimes loaded:', regimeMap.size);
       } catch (error) {
         console.warn('Could not fetch regimes, will use regime codes instead:', error);
       }
@@ -302,7 +341,7 @@ export class AviratoService {
       
       // Intentar obtener operadores desde room-blocks primero, luego fallback a operators
       try {
-        const roomBlocks = await this.getRoomBlocks(webCode, adjustedStart, adjustedEnd);
+        const roomBlocks = await this.getRoomBlocks(webCode, selectedStart, selectedEnd);
         console.log('=== ROOM BLOCKS OPERATORS DEBUG ===');
         console.log('Total room blocks received:', roomBlocks.length);
         
@@ -338,26 +377,28 @@ export class AviratoService {
         }
       }
       
-      // Obtener datos de facturación para cada reserva
-      console.log('=== RESERVATION OPERATORS DEBUG ===');
-      const uniqueOperatorIds = [...new Set(finalReservations.map(r => r.operator_id || r.operatorId))];
-      console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
+      // Obtener datos de facturación y enriquecer cada reserva
+      console.log('=== ENRICHING INDIVIDUAL RESERVATIONS ===');
+      const uniqueOperatorIds = [...new Set(activeReservations.map(r => r.operator_id || r.operatorId))];
+      console.log('Unique operator IDs found in active reservations:', uniqueOperatorIds);
       
-      for (const reservation of finalReservations) {
+      for (let i = 0; i < activeReservations.length; i++) {
+        const reservation = activeReservations[i];
+        console.log(`Processing reservation ${i + 1}/${activeReservations.length}: ${reservation.reservationId}`);
+        
         // Agregar nombre del régimen
         reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
         
         // Agregar nombre del operador/canal
         const operatorId = reservation.operator_id || reservation.operatorId;
-        console.log(`Reservation ${reservation.reservationId}: operatorId = ${operatorId}`);
         reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
-        console.log(`Mapped to: ${reservation.operator_name}`);
+        console.log(`Reservation ${reservation.reservationId}: operatorId ${operatorId} -> ${reservation.operator_name}`);
         
+        // Obtener datos de facturación
         try {
           const reservationId = reservation.reservation_id || reservation.reservationId;
           const billingData = await this.getBillingForReservation(reservationId, webCode);
           if (billingData && billingData.length > 0) {
-            // Sumar todos los totales de las facturas de esta reserva
             const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
             reservation.billing_total = totalBilling;
             reservation.is_fully_paid = totalBilling === 0;
@@ -367,20 +408,22 @@ export class AviratoService {
           }
         } catch (error) {
           console.warn(`Could not fetch billing for reservation ${reservation.reservation_id}:`, error);
-          // Si no se puede obtener la facturación, usar valores por defecto
           reservation.billing_total = 0;
           reservation.is_fully_paid = true;
         }
       }
     }
 
+    console.log('=== FINAL RESULT ===');
+    console.log(`Returning ${activeReservations.length} active reservations for period ${selectedStart.toISOString().split('T')[0]} to ${selectedEnd.toISOString().split('T')[0]}`);
+
     // Retornar en el formato esperado
     return {
       status: 'success',
-      data: [finalReservations], // Empaquetar en array como espera la interfaz
+      data: [activeReservations], // Empaquetar en array como espera la interfaz
       meta: {
         take: 100,
-        itemCount: finalReservations.length,
+        itemCount: activeReservations.length,
         itemRemaining: 0,
         hasNextPage: false,
         cursor: ''
