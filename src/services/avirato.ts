@@ -34,7 +34,7 @@ export interface AviratoReservationsResponse {
   data: AviratoReservation[];
 }
 
-const API_BASE_URL = 'https://apiv3.avirato.com';
+const API_BASE_URL = 'https://apiv2.avirato.com';
 
 export class AviratoService {
   private token: string | null = null;
@@ -42,16 +42,24 @@ export class AviratoService {
   private tokenExpiry: Date | null = null;
 
   async authenticate(credentials: AviratoCredentials): Promise<AviratoAuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth`, {
+    console.log('Attempting authentication with:', { email: credentials.email, url: `${API_BASE_URL}/auth/login` });
+    
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify(credentials),
     });
 
+    console.log('Authentication response status:', response.status);
+    console.log('Authentication response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      throw new Error(`Authentication failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Authentication failed. Response body:', errorText);
+      throw new Error(`Authentication failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data: AviratoAuthResponse = await response.json();
