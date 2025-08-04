@@ -218,17 +218,16 @@ export class AviratoService {
     const startDateStr = adjustedStart.toISOString().split('T')[0];
     const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
-    console.log('=== RESERVATION FETCH DEBUG ===');
-    console.log('Original dates:', { startDate, endDate });
-    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
-    console.log('Date strings for API:', { startDateStr, endDateStr });
-    console.log('Fetching reservations with web_code:', webCode);
+    console.log('=== RESERVATION FETCH WITH PAGINATION ===');
+    console.log('Date range:', { startDateStr, endDateStr });
+    console.log('Web code:', webCode);
 
     // Usar paginación para obtener todas las reservas
     const allReservationsData: AviratoReservation[][] = [];
     let hasNextPage = true;
-    let cursor = '';
+    let cursor: string | undefined;
     let pageCount = 0;
+    let totalItemCount = 0;
 
     while (hasNextPage) {
       // Configurar parámetros según la documentación de Avirato
@@ -236,19 +235,21 @@ export class AviratoService {
         web_code: webCode.toString(),
         start_date: startDateStr,
         end_date: endDateStr,
-        date_type: 'DEFAULT', // Usar el tipo de fecha por defecto
-        status: 'ACTIVAS', // Obtener todas las reservas excepto eliminadas y canceladas
+        date_type: 'DEFAULT',
+        status: 'ACTIVAS',
         charges: 'false',
-        take: '100'  // API máximo es 100
+        take: '100'
       });
 
-      // Agregar cursor si existe (para páginas siguientes)
+      // Agregar cursor solo si existe (páginas siguientes)
       if (cursor) {
         params.append('cursor', cursor);
       }
 
       const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
-      console.log(`Request URL (page ${pageCount + 1}):`, url);
+      console.log(`=== PAGE ${pageCount + 1} REQUEST ===`);
+      console.log('URL:', url);
+      console.log('Cursor:', cursor || 'none (first page)');
       
       const response = await fetch(url, {
         method: 'GET',
@@ -259,11 +260,11 @@ export class AviratoService {
         },
       });
 
-      console.log(`Reservations response status (page ${pageCount + 1}):`, response.status);
+      console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Failed to fetch reservations. Response body:', errorText);
+        console.error('Failed to fetch reservations:', errorText);
         
         if (response.status === 401) {
           this.clearToken();
@@ -273,66 +274,77 @@ export class AviratoService {
       }
 
       const pageData: AviratoReservationsResponse = await response.json();
-      console.log(`=== API RESPONSE DEBUG (page ${pageCount + 1}) ===`);
-      console.log('API Response status:', pageData.status);
-      console.log('API Response meta:', pageData.meta);
-      console.log('Raw data structure:', typeof pageData.data, Array.isArray(pageData.data));
-      console.log('Raw reservations data length:', pageData.data?.length || 0);
-
+      console.log(`=== PAGE ${pageCount + 1} RESPONSE ===`);
+      console.log('Status:', pageData.status);
+      console.log('Meta:', pageData.meta);
+      
       if (pageData.status === 'success' && pageData.data) {
+        // Contar reservas en esta página
+        const reservationsInPage = pageData.data.reduce((sum, group) => sum + group.length, 0);
+        console.log('Reservations in this page:', reservationsInPage);
+        
         // Agregar los datos de esta página
         allReservationsData.push(...pageData.data);
         
-        // Verificar si hay más páginas
-        hasNextPage = pageData.meta?.hasNextPage || false;
-        cursor = pageData.meta?.cursor || '';
+        // Usar el itemCount del meta de la primera página como total real
+        if (pageCount === 0) {
+          totalItemCount = pageData.meta?.itemCount || 0;
+          console.log('Total items available (from first page):', totalItemCount);
+        }
         
-        console.log(`Page ${pageCount + 1} completed. Has next page: ${hasNextPage}`);
+        // Verificar si hay más páginas según la documentación
+        hasNextPage = pageData.meta?.hasNextPage || false;
+        cursor = pageData.meta?.cursor;
+        
+        console.log('Has next page:', hasNextPage);
         if (hasNextPage) {
-          console.log(`Next cursor: ${cursor}`);
+          console.log('Next cursor:', cursor);
         }
       } else {
-        console.warn('API returned non-success status or no data:', pageData.status);
+        console.error('API returned non-success status or no data:', pageData.status);
         hasNextPage = false;
       }
 
       pageCount++;
       
       // Seguridad: evitar bucles infinitos
-      if (pageCount > 50) {
-        console.warn('Maximum page limit reached (50), stopping pagination');
+      if (pageCount > 100) {
+        console.warn('Maximum page limit reached (100), stopping pagination');
         break;
       }
     }
 
     console.log(`=== PAGINATION COMPLETE ===`);
     console.log(`Total pages fetched: ${pageCount}`);
-    console.log(`Total reservation groups: ${allReservationsData.length}`);
+    console.log(`Total reservation groups collected: ${allReservationsData.length}`);
+    const totalReservations = allReservationsData.reduce((sum, group) => sum + group.length, 0);
+    console.log(`Total individual reservations: ${totalReservations}`);
 
-    // Crear el objeto de respuesta consolidado
+    // Crear el objeto de respuesta consolidado según la documentación
     const consolidatedResponse: AviratoReservationsResponse = {
       status: 'success',
       data: allReservationsData,
       meta: {
         take: 100,
-        itemCount: allReservationsData.reduce((sum, group) => sum + group.length, 0),
-        itemRemaining: 0,
-        hasNextPage: false,
-        cursor: ''
+        itemCount: totalItemCount, // Usar el total real de la API
+        itemRemaining: 0, // Ya hemos obtenido todo
+        hasNextPage: false, // Ya no hay más páginas
+        cursor: '' // No necesario para el resultado final
       }
     };
 
     // Enriquecer reservas con datos de facturación y regímenes
     if (consolidatedResponse.status === 'success') {
       const allReservations = consolidatedResponse.data.flat();
-      console.log('Total reservations after flattening:', allReservations.length);
-      console.log('Sample reservation IDs:', allReservations.slice(0, 5).map(r => r.reservationId));
+      console.log('=== ENRICHING RESERVATIONS ===');
+      console.log('Total reservations to enrich:', allReservations.length);
       
       // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
       let regimeMap = new Map<string, string>();
       try {
         const regimes = await this.getRegimes(webCode);
         regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+        console.log('Regimes loaded:', regimeMap.size);
       } catch (error) {
         console.warn('Could not fetch regimes, will use regime codes instead:', error);
       }
@@ -343,15 +355,13 @@ export class AviratoService {
         [0, "Todos los operadores"],
         [1, "Channel Manager Booking.com"],
         [28, "Channel Manager Google"],
-        [1003, "Travelzoo"], // Basado en los logs
-        // Agregar otros operadores específicos según se identifiquen
+        [1003, "Travelzoo"]
       ]);
       
       // Intentar obtener operadores de la API como fallback
       try {
         const operators = await this.getOperators(webCode);
-        console.log('=== OPERATORS DEBUG ===');
-        console.log('Total operators received from API:', operators.length);
+        console.log('Operators loaded from API:', operators.length);
         
         // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
         operators.forEach(op => {
@@ -359,12 +369,13 @@ export class AviratoService {
             operatorMap.set(op.id, op.name);
           }
         });
+        console.log('Total operators available:', operatorMap.size);
       } catch (error) {
         console.warn('Could not fetch operators, will use operator IDs instead:', error);
       }
       
       // Obtener datos de facturación para cada reserva
-      console.log('=== RESERVATION OPERATORS DEBUG ===');
+      console.log('=== PROCESSING RESERVATIONS ===');
       const uniqueOperatorIds = [...new Set(allReservations.map(r => r.operator_id || r.operatorId))];
       console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
       
@@ -374,9 +385,7 @@ export class AviratoService {
         
         // Agregar nombre del operador/canal
         const operatorId = reservation.operator_id || reservation.operatorId;
-        console.log(`Reservation ${reservation.reservationId}: operatorId = ${operatorId}`);
         reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
-        console.log(`Mapped to: ${reservation.operator_name}`);
         
         try {
           const reservationId = reservation.reservation_id || reservation.reservationId;
@@ -397,6 +406,8 @@ export class AviratoService {
           reservation.is_fully_paid = true;
         }
       }
+      
+      console.log('=== ENRICHMENT COMPLETE ===');
     }
 
     return consolidatedResponse;
