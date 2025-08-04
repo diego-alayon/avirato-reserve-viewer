@@ -10,9 +10,13 @@ const Index = () => {
   const { isAuthenticated, logout, fetchReservations, isLoading } = useAvirato();
   const [showDashboard, setShowDashboard] = useState(false);
 
+  console.log('Index component - isAuthenticated:', isAuthenticated, 'showDashboard:', showDashboard);
+
   // Cargar reservas automáticamente cuando se autentica y mostrar la vista de reservas
   useEffect(() => {
+    console.log('useEffect - isAuthenticated changed:', isAuthenticated);
     if (isAuthenticated) {
+      console.log('User is authenticated, setting showDashboard to false and fetching reservations');
       setShowDashboard(false); // Asegurar que se muestre la vista de reservas
       fetchReservations();
     }
