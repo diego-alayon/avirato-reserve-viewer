@@ -93,7 +93,7 @@ export const ReservationCard = ({ reservation }: ReservationCardProps) => {
         )}
 
         <div className="text-xs text-muted-foreground pt-2 border-t">
-          ID: {reservation.reservation_id} • Creada: {new Date(reservation.created_at).toLocaleDateString('es-ES')}
+          ID: {reservation.reservation_id || reservation.reservationId} • Creada: {new Date(reservation.created_at || reservation.createdAt).toLocaleDateString('es-ES')}
         </div>
       </CardContent>
     </Card>
