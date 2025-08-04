@@ -80,7 +80,10 @@ const Reservations = () => {
     
     const reservationId = reservation.reservation_id?.toString() || '';
     
-    return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    // Asegurar que clientName no sea undefined antes de usar toLowerCase
+    const safeClientName = clientName || '';
+    
+    return safeClientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            reservationId.includes(searchTerm);
   });
   console.log('Filtered reservations count:', filteredReservations.length);
