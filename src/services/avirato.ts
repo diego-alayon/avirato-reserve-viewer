@@ -225,9 +225,14 @@ export class AviratoService {
     if (reservationsData.status === 'success') {
       const allReservations = reservationsData.data.flat();
       
-      // Obtener regímenes una sola vez
-      const regimes = await this.getRegimes(webCode);
-      const regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+      // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
+      let regimeMap = new Map<string, string>();
+      try {
+        const regimes = await this.getRegimes(webCode);
+        regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+      } catch (error) {
+        console.warn('Could not fetch regimes, will use regime codes instead:', error);
+      }
       
       // Obtener datos de facturación para cada reserva
       for (const reservation of allReservations) {
