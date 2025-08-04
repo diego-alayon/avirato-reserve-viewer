@@ -227,7 +227,11 @@ export class AviratoService {
       start_date: startDateStr,
       end_date: endDateStr,
       charges: 'false',
-      take: '100'  // API máximo es 100
+      take: '100',  // API máximo es 100
+      // Agregar parámetros para incluir todos los estados
+      status: 'all',  // Incluir todos los estados
+      include_cancelled: 'true',  // Incluir canceladas
+      include_pending: 'true'  // Incluir pendientes
     });
 
     const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
