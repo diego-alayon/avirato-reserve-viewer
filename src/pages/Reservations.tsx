@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 import { 
   RefreshCw, 
   LogOut, 
@@ -11,7 +12,8 @@ import {
   TrendingUp, 
   Users, 
   CreditCard,
-  Hotel
+  Hotel,
+  Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
@@ -27,6 +29,7 @@ const Reservations = () => {
     from: undefined,
     to: undefined
   });
+  const [searchTerm, setSearchTerm] = useState('');
   const [tempDateRange, setTempDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
     from: undefined,
     to: undefined
@@ -65,9 +68,21 @@ const Reservations = () => {
     }
   };
 
-  const totalReservations = reservations.length;
-  const totalRevenue = reservations.reduce((sum, res) => sum + (res.price || 0), 0);
-  const confirmedReservations = reservations.filter(res => 
+  // Filtrar reservas por término de búsqueda
+  const filteredReservations = reservations.filter(reservation => {
+    if (!searchTerm) return true;
+    
+    const clientName = reservation.client?.name && reservation.client?.surname 
+      ? `${reservation.client.name} ${reservation.client.surname}`
+      : reservation.client_name || reservation.client_id || '';
+    
+    return clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           reservation.reservation_id.toString().includes(searchTerm);
+  });
+
+  const totalReservations = filteredReservations.length;
+  const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
+  const confirmedReservations = filteredReservations.filter(res => 
     res.status.toLowerCase().includes('confirmada') || res.status.toLowerCase().includes('confirmed')
   ).length;
 
@@ -86,7 +101,7 @@ const Reservations = () => {
     },
     {
       title: "Huéspedes",
-      value: reservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0),
+      value: filteredReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0),
       icon: Users,
       color: "text-blue-600"
     },
@@ -224,26 +239,53 @@ const Reservations = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl font-bold">
-                  Reservas Recientes
+                  Reservas {searchTerm && `(${totalReservations} de ${reservations.length})`}
                 </CardTitle>
                 <CardDescription>
-                  Lista completa de reservas de Avirato
+                  {searchTerm ? `Mostrando resultados para "${searchTerm}"` : 'Lista completa de reservas de Avirato'}
                 </CardDescription>
               </div>
               <Badge variant="secondary" className="text-sm">
-                {totalReservations} reservas
+                {totalReservations} {searchTerm ? 'encontradas' : 'reservas'}
               </Badge>
+            </div>
+            
+            {/* Buscador */}
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre de cliente o ID de reserva..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </CardHeader>
           <CardContent>
-            {reservations.length === 0 ? (
+            {filteredReservations.length === 0 && reservations.length > 0 ? (
+              <div className="text-center py-12">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  No se encontraron reservas
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  No hay reservas que coincidan con "{searchTerm}"
+                </p>
+                <Button 
+                  onClick={() => setSearchTerm('')}
+                  variant="outline"
+                >
+                  Limpiar búsqueda
+                </Button>
+              </div>
+            ) : filteredReservations.length === 0 ? (
               <div className="text-center py-12">
                 <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
                   No hay reservas cargadas
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Selecciona un rango de fechas y haz clic en "Cargar Reservas"
+                  Selecciona un rango de fechas y haz clic en "Buscar Reservas"
                 </p>
                 <Button 
                   onClick={handleFetchReservations}
@@ -251,7 +293,7 @@ const Reservations = () => {
                   variant="hero"
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Cargar Reservas
+                  Buscar Reservas
                 </Button>
               </div>
             ) : (
@@ -274,7 +316,7 @@ const Reservations = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reservations.map((reservation) => (
+                  {filteredReservations.map((reservation) => (
                     <TableRow key={reservation.reservation_id}>
                       <TableCell className="font-medium">
                         #{reservation.reservation_id}
