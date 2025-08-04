@@ -153,15 +153,17 @@ export const AviratoReservations = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID Reserva</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Check-in</TableHead>
-                    <TableHead>Check-out</TableHead>
-                    <TableHead>Huéspedes</TableHead>
-                    <TableHead>Precio</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Observaciones</TableHead>
+              <TableHead>ID Reserva</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Canal</TableHead>
+              <TableHead>Check-in</TableHead>
+              <TableHead>Check-out</TableHead>
+              <TableHead>Huéspedes</TableHead>
+              <TableHead>Precio</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Estado de Pago</TableHead>
+              <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -178,6 +180,14 @@ export const AviratoReservations = () => {
                       </TableCell>
                       <TableCell>
                         {reservation.client?.phone || 'No disponible'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {reservation.operator_id === 0 ? 'Directo' : 
+                           reservation.operator_id === 1 ? 'Booking.com' :
+                           reservation.operator_id === 1003 ? 'TravelZoo' :
+                           `Canal ${reservation.operator_id}`}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
@@ -209,6 +219,13 @@ export const AviratoReservations = () => {
                           }
                         >
                           {reservation.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={reservation.is_paid ? 'default' : 'destructive'}
+                        >
+                          {reservation.is_paid ? 'Pagado' : 'Pendiente'}
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-xs truncate">
