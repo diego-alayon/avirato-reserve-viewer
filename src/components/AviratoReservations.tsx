@@ -17,9 +17,9 @@ export const AviratoReservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
 
   const totalReservations = reservations.length;
-  const totalRevenue = reservations.reduce((sum, res) => sum + (res.total_amount || 0), 0);
+  const totalRevenue = reservations.reduce((sum, res) => sum + (res.price || 0), 0);
   const confirmedReservations = reservations.filter(res => 
-    res.status.toLowerCase() === 'confirmed' || res.status.toLowerCase() === 'confirmada'
+    res.status.toLowerCase().includes('confirmada') || res.status.toLowerCase().includes('confirmed')
   ).length;
 
   const stats = [

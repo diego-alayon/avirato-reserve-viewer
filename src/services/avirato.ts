@@ -13,25 +13,47 @@ export interface AviratoAuthResponse {
 }
 
 export interface AviratoReservation {
-  reservation_id: string;
-  master_reservation_id: string;
-  property_id: number;
-  guest_name: string;
-  guest_email: string;
-  check_in: string;
-  check_out: string;
+  reservation_id: number;
+  rate_id: number;
+  promotional_code: string;
+  promotional_package: any[];
+  space_id: number;
+  space_type_id: number;
+  space_subtype_id: number;
+  price: number;
+  client_id: string;
+  client_name: string;
+  check_in_date: string;
+  check_out_date: string;
+  regime: string;
+  adults: number;
+  children: number;
+  additional_beds: number;
   status: string;
-  total_amount: number;
-  currency: string;
+  advance: number;
+  advance_type: number;
+  operator_id: number;
+  operator_reservation_id: string;
+  is_paid: boolean;
+  observations: string;
+  master_reservation_id: number;
   created_at: string;
-  room_type?: string;
-  adults?: number;
-  children?: number;
+  guests: any[];
+  client: any;
+  charges: any[];
+  predefinedCharges: any[];
 }
 
 export interface AviratoReservationsResponse {
   status: string;
-  data: AviratoReservation[];
+  data: AviratoReservation[][];
+  meta: {
+    take: number;
+    itemCount: number;
+    itemRemaining: number;
+    hasNextPage: boolean;
+    cursor: string;
+  };
 }
 
 const API_BASE_URL = 'https://apiv3.avirato.com';
@@ -83,6 +105,15 @@ export class AviratoService {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
+    // Get the web_code from stored data
+    const webCodes = this.getWebCodes();
+    if (webCodes.length === 0) {
+      throw new Error('No web codes available. Please authenticate again.');
+    }
+
+    // Use the first web_code
+    const webCode = webCodes[0];
+
     // Get reservations from the last 30 days to today
     const today = new Date();
     const thirtyDaysAgo = new Date();
@@ -91,17 +122,21 @@ export class AviratoService {
     const startDate = thirtyDaysAgo.toISOString().split('T')[0];
     const endDate = today.toISOString().split('T')[0];
 
-    console.log('Fetching reservations from:', startDate, 'to:', endDate);
+    console.log('Fetching reservations with web_code:', webCode, 'from:', startDate, 'to:', endDate);
 
-    const response = await fetch(`${API_BASE_URL}/v3/reservation/dates?start_date=${startDate}&end_date=${endDate}`, {
+    const url = `${API_BASE_URL}/v3/reservation/dates?web_code=${webCode}&start_date=${startDate}&end_date=${endDate}`;
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.token}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
     });
 
     console.log('Reservations response status:', response.status);
+    console.log('Request URL:', url);
 
     if (!response.ok) {
       const errorText = await response.text();

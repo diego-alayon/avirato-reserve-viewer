@@ -24,14 +24,14 @@ const getStatusColor = (status: string) => {
 };
 
 export const ReservationCard = ({ reservation }: ReservationCardProps) => {
-  const checkInDate = new Date(reservation.check_in).toLocaleDateString('es-ES', {
+  const checkInDate = new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
   
-  const checkOutDate = new Date(reservation.check_out).toLocaleDateString('es-ES', {
+  const checkOutDate = new Date(reservation.check_out_date).toLocaleDateString('es-ES', {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
@@ -43,7 +43,7 @@ export const ReservationCard = ({ reservation }: ReservationCardProps) => {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-foreground">
-            {reservation.guest_name}
+            {reservation.client_name}
           </CardTitle>
           <Badge className={getStatusColor(reservation.status)}>
             {reservation.status}
@@ -51,7 +51,7 @@ export const ReservationCard = ({ reservation }: ReservationCardProps) => {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Mail className="h-4 w-4" />
-          {reservation.guest_email}
+          {reservation.client_id}
         </div>
       </CardHeader>
       
@@ -68,31 +68,29 @@ export const ReservationCard = ({ reservation }: ReservationCardProps) => {
           <span>{checkOutDate}</span>
         </div>
 
-        {(reservation.adults || reservation.children) && (
-          <div className="flex items-center gap-2 text-sm">
-            <Users className="h-4 w-4 text-primary" />
-            <span className="font-medium">Huéspedes:</span>
-            <span>
-              {reservation.adults} adultos
-              {reservation.children && reservation.children > 0 && `, ${reservation.children} niños`}
-            </span>
-          </div>
-        )}
-
-        {reservation.room_type && (
-          <div className="text-sm">
-            <span className="font-medium">Habitación:</span>
-            <span className="ml-2">{reservation.room_type}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="font-medium">Huéspedes:</span>
+          <span>
+            {reservation.adults} adultos
+            {reservation.children && reservation.children > 0 && `, ${reservation.children} niños`}
+          </span>
+        </div>
 
         <div className="flex items-center gap-2 text-sm">
           <CreditCard className="h-4 w-4 text-primary" />
-          <span className="font-medium">Total:</span>
+          <span className="font-medium">Precio:</span>
           <span className="font-semibold text-lg">
-            {reservation.total_amount} {reservation.currency}
+            €{reservation.price}
           </span>
         </div>
+
+        {reservation.regime && (
+          <div className="text-sm">
+            <span className="font-medium">Régimen:</span>
+            <span className="ml-2">{reservation.regime}</span>
+          </div>
+        )}
 
         <div className="text-xs text-muted-foreground pt-2 border-t">
           ID: {reservation.reservation_id} • Creada: {new Date(reservation.created_at).toLocaleDateString('es-ES')}

@@ -51,10 +51,12 @@ export const useAvirato = () => {
       const response = await aviratoService.getReservations();
       
       if (response.status === 'success') {
-        setReservations(response.data);
+        // Flatten the nested arrays to get all reservations
+        const allReservations = response.data.flat();
+        setReservations(allReservations);
         toast({
           title: "Reservas cargadas",
-          description: `Se encontraron ${response.data.length} reservas`,
+          description: `Se encontraron ${allReservations.length} reservas`,
         });
       } else {
         throw new Error('Failed to fetch reservations');
