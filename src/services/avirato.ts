@@ -231,7 +231,6 @@ export class AviratoService {
       end_date: endDateStr,
       date_type: 'DEFAULT', // Usar el tipo de fecha por defecto
       status: 'ACTIVAS', // Obtener todas las reservas excepto eliminadas y canceladas
-      operator_id: '0', // Obtener reservas de todos los operadores
       charges: 'false',
       take: '100'  // API máximo es 100
     });
