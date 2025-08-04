@@ -330,48 +330,48 @@ const Reservations = () => {
                       <TableCell className="font-medium">
                         {reservation.reservation_id || reservation.reservationId}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {reservation.client?.name && reservation.client?.surname 
                           ? `${reservation.client.name} ${reservation.client.surname}`
-                          : reservation.client_name || reservation.client_id || 'No disponible'
+                          : reservation.client_name || reservation.client_id || "No disponible"
                         }
                       </TableCell>
-                      <TableCell>
-                        {reservation.client?.phone || 'No disponible'}
+                      <TableCell className="whitespace-nowrap">
+                        {reservation.client?.phone || "No disponible"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant="outline">
-                          {reservation.operator_name || 'No disponible'}
+                          {reservation.operator_name || "No disponible"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {(() => {
                           const checkInDate = reservation.checkInDate || reservation.check_in_date;
-                          if (!checkInDate) return 'No disponible';
+                          if (!checkInDate) return "No disponible";
                           const date = new Date(checkInDate);
-                          return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
+                          return isNaN(date.getTime()) ? "Fecha inválida" : date.toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric"
                           });
                         })()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {(() => {
                           const checkOutDate = reservation.checkOutDate || reservation.check_out_date;
-                          if (!checkOutDate) return 'No disponible';
+                          if (!checkOutDate) return "No disponible";
                           const date = new Date(checkOutDate);
-                          return isNaN(date.getTime()) ? 'Fecha inválida' : date.toLocaleDateString('es-ES', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
+                          return isNaN(date.getTime()) ? "Fecha inválida" : date.toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric"
                           });
                         })()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {reservation.regime_name || reservation.regime}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {reservation.adults} adultos
                         {reservation.children > 0 && `, ${reservation.children} niños`}
                       </TableCell>
@@ -408,8 +408,8 @@ const Reservations = () => {
                           : '€0.00'
                         }
                       </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {reservation.client?.observations || reservation.observations || 'Sin observaciones'}
+                      <TableCell className="max-w-xs truncate whitespace-nowrap">
+                        {reservation.client?.observations || reservation.observations || "Sin observaciones"}
                       </TableCell>
                     </TableRow>
                   ))}
