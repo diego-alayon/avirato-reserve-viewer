@@ -24,8 +24,12 @@ const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
-    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 días atrás
-    to: new Date() // hoy
+    from: undefined,
+    to: undefined
+  });
+  const [tempDateRange, setTempDateRange] = useState<{from: Date | undefined, to: Date | undefined}>({
+    from: undefined,
+    to: undefined
   });
 
   const handleLogout = () => {
@@ -35,16 +39,29 @@ const Reservations = () => {
 
   const handleDateRangeChange = (range: {from: Date | undefined, to: Date | undefined} | undefined) => {
     if (range) {
-      setDateRange(range);
+      setTempDateRange(range);
     }
+  };
+
+  const handleAcceptDateRange = () => {
+    if (tempDateRange.from && tempDateRange.to) {
+      setDateRange(tempDateRange);
+    }
+  };
+
+  const handleClearDateRange = () => {
+    setTempDateRange({ from: undefined, to: undefined });
+    setDateRange({ from: undefined, to: undefined });
   };
 
   const handleFetchReservations = () => {
     if (dateRange.from && dateRange.to) {
       fetchReservations(dateRange.from, dateRange.to);
     } else {
-      // Si no hay fechas seleccionadas, usar valores por defecto
-      fetchReservations();
+      // Si no hay fechas seleccionadas, usar valores por defecto (últimos 30 días)
+      const defaultEnd = new Date();
+      const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      fetchReservations(defaultStart, defaultEnd);
     }
   };
 
@@ -123,7 +140,7 @@ const Reservations = () => {
                         format(dateRange.from, "dd/MM/yyyy", { locale: es })
                       )
                     ) : (
-                      <span>Seleccionar fechas</span>
+                      <span>Seleccionar rango de fechas</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -131,19 +148,35 @@ const Reservations = () => {
                   <Calendar
                     initialFocus
                     mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
+                    defaultMonth={tempDateRange?.from || new Date()}
+                    selected={tempDateRange}
                     onSelect={handleDateRangeChange}
                     numberOfMonths={2}
                     className={cn("p-3 pointer-events-auto")}
-                    disabled={(date) => date > new Date()}
                   />
+                  <div className="flex justify-between gap-2 p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearDateRange}
+                    >
+                      Limpiar
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleAcceptDateRange}
+                      disabled={!tempDateRange?.from || !tempDateRange?.to}
+                    >
+                      Aceptar
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
               
               <Button 
                 onClick={handleFetchReservations}
-                disabled={isLoading || (!dateRange?.from || !dateRange?.to)}
+                disabled={isLoading}
                 variant="gradient"
                 size="sm"
               >
