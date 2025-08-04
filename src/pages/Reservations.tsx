@@ -11,10 +11,17 @@ import {
   CreditCard,
   Hotel
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
 
-export const AviratoReservations = () => {
+const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const totalReservations = reservations.length;
   const totalRevenue = reservations.reduce((sum, res) => sum + (res.price || 0), 0);
@@ -76,10 +83,10 @@ export const AviratoReservations = () => {
                 size="sm"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Cargando...' : 'Actualizar'}
+                {isLoading ? 'Cargando...' : 'Cargar Reservas'}
               </Button>
               <Button 
-                onClick={logout}
+                onClick={handleLogout}
                 variant="outline"
                 size="sm"
               >
@@ -135,10 +142,10 @@ export const AviratoReservations = () => {
               <div className="text-center py-12">
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  No hay reservas
+                  No hay reservas cargadas
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Haz clic en "Ver Reservas" para cargar las reservas de Avirato
+                  Haz clic en "Cargar Reservas" para ver las reservas de Avirato
                 </p>
                 <Button 
                   onClick={fetchReservations}
@@ -146,24 +153,24 @@ export const AviratoReservations = () => {
                   variant="hero"
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Ver Reservas
+                  Cargar Reservas
                 </Button>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-              <TableHead>ID Reserva</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Teléfono</TableHead>
-              <TableHead>Canal</TableHead>
-              <TableHead>Check-in</TableHead>
-              <TableHead>Check-out</TableHead>
-              <TableHead>Huéspedes</TableHead>
-              <TableHead>Precio</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Estado de Pago</TableHead>
-              <TableHead>Observaciones</TableHead>
+                    <TableHead>ID Reserva</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Canal</TableHead>
+                    <TableHead>Check-in</TableHead>
+                    <TableHead>Check-out</TableHead>
+                    <TableHead>Huéspedes</TableHead>
+                    <TableHead>Precio</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Estado de Pago</TableHead>
+                    <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,3 +249,5 @@ export const AviratoReservations = () => {
     </div>
   );
 };
+
+export default Reservations;

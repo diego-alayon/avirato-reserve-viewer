@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,14 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Hotel, Lock, Mail } from 'lucide-react';
 import { useAvirato } from '@/hooks/useAvirato';
 
-export const AviratoAuth = () => {
+const Login = () => {
   const [email, setEmail] = useState('dalayong@gmail.com');
   const [password, setPassword] = useState('Bemoc@31');
   const { isLoading, authenticate } = useAvirato();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await authenticate({ email, password });
+    const success = await authenticate({ email, password });
+    if (success) {
+      navigate('/reservations');
+    }
   };
 
   return (
@@ -92,3 +97,5 @@ export const AviratoAuth = () => {
     </div>
   );
 };
+
+export default Login;

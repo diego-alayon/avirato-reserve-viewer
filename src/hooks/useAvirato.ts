@@ -11,21 +11,16 @@ export const useAvirato = () => {
   const authenticate = useCallback(async (credentials: AviratoCredentials) => {
     setIsLoading(true);
     try {
-      console.log('Starting authentication process...');
       const response = await aviratoService.authenticate(credentials);
-      console.log('Authentication response:', response);
       
       if (response.status === 'success') {
-        console.log('Authentication successful, setting state to true');
         setIsAuthenticated(true);
-        console.log('State updated to authenticated');
         toast({
           title: "Autenticación exitosa",
           description: "Conectado a Avirato correctamente",
         });
         return true;
       } else {
-        console.log('Authentication failed - status not success');
         throw new Error('Authentication failed');
       }
     } catch (error) {
