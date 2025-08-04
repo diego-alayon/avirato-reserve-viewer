@@ -149,6 +149,25 @@ export interface AviratoOperatorsResponse {
   data: AviratoOperator[];
 }
 
+export interface AviratoRoomBlock {
+  id: number;
+  space_subtype_id: number;
+  space_subtype_name: string;
+  operator_id: number;
+  operator_name: string;
+  rate_id: number;
+  rate_name: string;
+  date: string;
+  block_sales: boolean;
+  block_arrivals: boolean;
+  block_departures: boolean;
+}
+
+export interface AviratoRoomBlocksResponse {
+  status: string;
+  data: AviratoRoomBlock[];
+}
+
 const API_BASE_URL = 'https://apiv3.avirato.com';
 
 export class AviratoService {
@@ -295,20 +314,42 @@ export class AviratoService {
         // Agregar otros operadores específicos según se identifiquen
       ]);
       
-      // Intentar obtener operadores de la API como fallback
+      // Intentar obtener operadores desde room-blocks primero, luego fallback a operators
       try {
-        const operators = await this.getOperators(webCode);
-        console.log('=== OPERATORS DEBUG ===');
-        console.log('Total operators received from API:', operators.length);
+        const roomBlocks = await this.getRoomBlocks(webCode);
+        console.log('=== ROOM BLOCKS OPERATORS DEBUG ===');
+        console.log('Total room blocks received:', roomBlocks.length);
         
-        // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
-        operators.forEach(op => {
-          if (!operatorMap.has(op.id)) {
-            operatorMap.set(op.id, op.name);
-          }
+        // Crear mapeo de operadores desde room-blocks (priority mapping)
+        const roomBlockOperatorMap = new Map<number, string>();
+        roomBlocks.forEach(block => {
+          roomBlockOperatorMap.set(block.operator_id, block.operator_name);
+        });
+        
+        console.log('Operators from room blocks:', Array.from(roomBlockOperatorMap.entries()));
+        
+        // Agregar operadores de room-blocks al mapeo (sobrescribe para mejor precisión)
+        roomBlockOperatorMap.forEach((name, id) => {
+          operatorMap.set(id, name);
         });
       } catch (error) {
-        console.warn('Could not fetch operators, will use operator IDs instead:', error);
+        console.warn('Could not fetch room blocks operators, trying fallback:', error);
+        
+        // Fallback: intentar obtener operadores de la API tradicional
+        try {
+          const operators = await this.getOperators(webCode);
+          console.log('=== OPERATORS DEBUG ===');
+          console.log('Total operators received from API:', operators.length);
+          
+          // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
+          operators.forEach(op => {
+            if (!operatorMap.has(op.id)) {
+              operatorMap.set(op.id, op.name);
+            }
+          });
+        } catch (error) {
+          console.warn('Could not fetch operators, will use operator IDs instead:', error);
+        }
       }
       
       // Obtener datos de facturación para cada reserva
@@ -433,6 +474,34 @@ export class AviratoService {
 
     const operatorsResponse: AviratoOperatorsResponse = await response.json();
     return operatorsResponse.status === 'success' ? operatorsResponse.data : [];
+  }
+
+  async getRoomBlocks(webCode: number): Promise<AviratoRoomBlock[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/channel-manager/room-blocks?${params}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch room blocks: ${response.statusText}`);
+    }
+
+    const roomBlocksResponse: AviratoRoomBlocksResponse = await response.json();
+    return roomBlocksResponse.status === 'success' ? roomBlocksResponse.data : [];
   }
 
   isAuthenticated(): boolean {
