@@ -196,18 +196,22 @@ const Reservations = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
+                        {reservation.check_in_date ? 
+                          new Date(reservation.check_in_date.replace(' ', 'T')).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          }) : 'No disponible'
+                        }
                       </TableCell>
                       <TableCell>
-                        {new Date(reservation.check_out_date).toLocaleDateString('es-ES', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
+                        {reservation.check_out_date ? 
+                          new Date(reservation.check_out_date.replace(' ', 'T')).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          }) : 'No disponible'
+                        }
                       </TableCell>
                       <TableCell>
                         {reservation.regime_name || reservation.regime}
