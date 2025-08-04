@@ -170,6 +170,7 @@ const Reservations = () => {
                     <TableHead>Precio</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Estado de Pago</TableHead>
+                    <TableHead>Importe Pendiente</TableHead>
                     <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -230,10 +231,22 @@ const Reservations = () => {
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant={reservation.is_paid ? 'default' : 'destructive'}
+                          variant={reservation.is_fully_paid !== undefined 
+                            ? (reservation.is_fully_paid ? 'default' : 'destructive')
+                            : (reservation.is_paid ? 'default' : 'destructive')
+                          }
                         >
-                          {reservation.is_paid ? 'Pagado' : 'Pendiente'}
+                          {reservation.is_fully_paid !== undefined 
+                            ? (reservation.is_fully_paid ? 'Pagado' : 'Pago Pendiente')
+                            : (reservation.is_paid ? 'Pagado' : 'Pendiente')
+                          }
                         </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        {reservation.billing_total !== undefined 
+                          ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
+                          : '€0.00'
+                        }
                       </TableCell>
                       <TableCell className="max-w-xs truncate">
                         {reservation.client?.observations || reservation.observations || 'Sin observaciones'}

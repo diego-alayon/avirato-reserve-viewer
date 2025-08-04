@@ -29,6 +29,34 @@ export interface AviratoClient {
   birth_date: string;
 }
 
+export interface AviratoBillingData {
+  billId: number;
+  billNumber: string;
+  reservationId: number;
+  total: number;
+  cash: number;
+  card: number;
+  wireTransfer: number;
+  chargeToTap: number;
+  anotherPaymentMethod: number;
+  type: string;
+  base: number;
+  vat: number;
+  discount: number;
+}
+
+export interface AviratoBillingResponse {
+  status: string;
+  data: AviratoBillingData[];
+  meta: {
+    take: number;
+    itemCount: number;
+    itemRemaining: number;
+    hasNextPage: boolean;
+    cursor: string;
+  };
+}
+
 export interface AviratoReservation {
   reservation_id: number;
   rate_id: number;
@@ -59,6 +87,9 @@ export interface AviratoReservation {
   client: AviratoClient;
   charges: any[];
   predefinedCharges: any[];
+  // Nuevos campos para facturación
+  billing_total?: number;
+  is_fully_paid?: boolean;
 }
 
 export interface AviratoReservationsResponse {
@@ -174,7 +205,68 @@ export class AviratoService {
       throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
     }
 
-    return await response.json();
+    const reservationsData: AviratoReservationsResponse = await response.json();
+    
+    // Enriquecer reservas con datos de facturación
+    if (reservationsData.status === 'success') {
+      const allReservations = reservationsData.data.flat();
+      
+      // Obtener datos de facturación para cada reserva
+      for (const reservation of allReservations) {
+        try {
+          const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
+          if (billingData && billingData.length > 0) {
+            // Sumar todos los totales de las facturas de esta reserva
+            const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
+            reservation.billing_total = totalBilling;
+            reservation.is_fully_paid = totalBilling === 0;
+          } else {
+            reservation.billing_total = 0;
+            reservation.is_fully_paid = true;
+          }
+        } catch (error) {
+          console.warn(`Could not fetch billing for reservation ${reservation.reservation_id}:`, error);
+          // Si no se puede obtener la facturación, usar valores por defecto
+          reservation.billing_total = 0;
+          reservation.is_fully_paid = true;
+        }
+      }
+    }
+
+    return reservationsData;
+  }
+
+  async getBillingForReservation(reservationId: number, webCode: number): Promise<AviratoBillingData[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+      reservation_id: reservationId.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/bill?${params}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        // No hay facturas para esta reserva
+        return [];
+      }
+      throw new Error(`Failed to fetch billing: ${response.statusText}`);
+    }
+
+    const billingResponse: AviratoBillingResponse = await response.json();
+    return billingResponse.status === 'success' ? billingResponse.data : [];
   }
 
   isAuthenticated(): boolean {
