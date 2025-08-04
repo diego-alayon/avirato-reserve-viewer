@@ -58,23 +58,12 @@ const Reservations = () => {
   };
 
   const handleFetchReservations = () => {
-    console.log('=== HANDLE FETCH RESERVATIONS DEBUG ===');
-    console.log('dateRange:', dateRange);
-    console.log('dateRange.from:', dateRange.from);
-    console.log('dateRange.to:', dateRange.to);
-    
     if (dateRange.from && dateRange.to) {
-      console.log('Using selected date range:');
-      console.log('FROM:', dateRange.from.toISOString());
-      console.log('TO:', dateRange.to.toISOString());
       fetchReservations(dateRange.from, dateRange.to);
     } else {
-      console.log('Using default date range (last 30 days)');
       // Si no hay fechas seleccionadas, usar valores por defecto (últimos 30 días)
       const defaultEnd = new Date();
       const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      console.log('Default FROM:', defaultStart.toISOString());
-      console.log('Default TO:', defaultEnd.toISOString());
       fetchReservations(defaultStart, defaultEnd);
     }
   };
