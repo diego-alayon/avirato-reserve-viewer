@@ -289,6 +289,9 @@ export class AviratoService {
       let operatorMap = new Map<number, string>();
       try {
         const operators = await this.getOperators(webCode);
+        console.log('=== OPERATORS DEBUG ===');
+        console.log('Total operators received:', operators.length);
+        console.log('All operators:', operators.map(op => `ID: ${op.id}, Name: ${op.name}`));
         operatorMap = new Map(operators.map(op => [op.id, op.name]));
       } catch (error) {
         console.warn('Could not fetch operators, will use operator IDs instead:', error);
