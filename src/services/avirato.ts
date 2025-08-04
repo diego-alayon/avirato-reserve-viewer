@@ -234,14 +234,166 @@ export class AviratoService {
     const adjustedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1); // Add 1 day to include end date
 
-    const startDateStr = adjustedStart.toISOString().split('T')[0];
-    const endDateStr = adjustedEnd.toISOString().split('T')[0];
-
     console.log('=== RESERVATION FETCH DEBUG ===');
     console.log('Original dates:', { startDate, endDate });
     console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
-    console.log('Date strings for API:', { startDateStr, endDateStr });
+
+    // Para obtener todas las reservas activas durante el período seleccionado,
+    // necesitamos hacer múltiples consultas para capturar:
+    // 1. Reservas con check-in en el rango seleccionado
+    // 2. Reservas con check-in anterior pero check-out en/después del rango
+    
+    const allReservations = new Map<number, any>(); // Usar Map para evitar duplicados
+    
+    // Consulta 1: Reservas con check-in en el rango seleccionado (consulta actual)
+    try {
+      const reservationsInRange = await this.fetchReservationsByCheckIn(webCode, adjustedStart, adjustedEnd);
+      reservationsInRange.forEach(reservation => {
+        allReservations.set(reservation.reservationId, reservation);
+      });
+      console.log('Reservations with check-in in range:', reservationsInRange.length);
+    } catch (error) {
+      console.error('Error fetching reservations in range:', error);
+    }
+
+    // Consulta 2: Reservas activas que empezaron antes del rango pero siguen activas
+    // Buscar reservas de los últimos 30 días antes del inicio del rango
+    const extendedStart = new Date(adjustedStart.getTime() - 30 * 24 * 60 * 60 * 1000);
+    try {
+      const activeReservations = await this.fetchReservationsByCheckIn(webCode, extendedStart, adjustedStart);
+      
+      // Filtrar solo las que tienen check-out durante o después del período seleccionado
+      const filteredActiveReservations = activeReservations.filter(reservation => {
+        const checkOutDate = new Date(reservation.checkOutDate || reservation.check_out_date);
+        return checkOutDate >= adjustedStart; // Check-out durante o después del inicio del rango
+      });
+      
+      filteredActiveReservations.forEach(reservation => {
+        allReservations.set(reservation.reservationId, reservation);
+      });
+      console.log('Active reservations from before range:', filteredActiveReservations.length);
+    } catch (error) {
+      console.error('Error fetching active reservations:', error);
+    }
+
+    const finalReservations = Array.from(allReservations.values());
+    console.log('Total unique reservations found:', finalReservations.length);
+    
+    // Enriquecer reservas con datos de facturación y regímenes
+    if (finalReservations.length > 0) {
+      // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
+      let regimeMap = new Map<string, string>();
+      try {
+        const regimes = await this.getRegimes(webCode);
+        regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
+      } catch (error) {
+        console.warn('Could not fetch regimes, will use regime codes instead:', error);
+      }
+      
+      // Mapeo manual de operadores específicos del establecimiento
+      const operatorMap = new Map<number, string>([
+        [-1, "Motor de reservas"], // Cliente Hotel/Web directo
+        [0, "Todos los operadores"],
+        [1, "Channel Manager Booking.com"],
+        [28, "Channel Manager Google"],
+        [1003, "Travelzoo"], // Basado en los logs
+        // Agregar otros operadores específicos según se identifiquen
+      ]);
+      
+      // Intentar obtener operadores desde room-blocks primero, luego fallback a operators
+      try {
+        const roomBlocks = await this.getRoomBlocks(webCode, adjustedStart, adjustedEnd);
+        console.log('=== ROOM BLOCKS OPERATORS DEBUG ===');
+        console.log('Total room blocks received:', roomBlocks.length);
+        
+        // Crear mapeo de operadores desde room-blocks (priority mapping)
+        const roomBlockOperatorMap = new Map<number, string>();
+        roomBlocks.forEach(block => {
+          roomBlockOperatorMap.set(block.operator_id, block.operator_name);
+        });
+        
+        console.log('Operators from room blocks:', Array.from(roomBlockOperatorMap.entries()));
+        
+        // Agregar operadores de room-blocks al mapeo (sobrescribe para mejor precisión)
+        roomBlockOperatorMap.forEach((name, id) => {
+          operatorMap.set(id, name);
+        });
+      } catch (error) {
+        console.warn('Could not fetch room blocks operators, trying fallback:', error);
+        
+        // Fallback: intentar obtener operadores de la API tradicional
+        try {
+          const operators = await this.getOperators(webCode);
+          console.log('=== OPERATORS DEBUG ===');
+          console.log('Total operators received from API:', operators.length);
+          
+          // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
+          operators.forEach(op => {
+            if (!operatorMap.has(op.id)) {
+              operatorMap.set(op.id, op.name);
+            }
+          });
+        } catch (error) {
+          console.warn('Could not fetch operators, will use operator IDs instead:', error);
+        }
+      }
+      
+      // Obtener datos de facturación para cada reserva
+      console.log('=== RESERVATION OPERATORS DEBUG ===');
+      const uniqueOperatorIds = [...new Set(finalReservations.map(r => r.operator_id || r.operatorId))];
+      console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
+      
+      for (const reservation of finalReservations) {
+        // Agregar nombre del régimen
+        reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
+        
+        // Agregar nombre del operador/canal
+        const operatorId = reservation.operator_id || reservation.operatorId;
+        console.log(`Reservation ${reservation.reservationId}: operatorId = ${operatorId}`);
+        reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
+        console.log(`Mapped to: ${reservation.operator_name}`);
+        
+        try {
+          const reservationId = reservation.reservation_id || reservation.reservationId;
+          const billingData = await this.getBillingForReservation(reservationId, webCode);
+          if (billingData && billingData.length > 0) {
+            // Sumar todos los totales de las facturas de esta reserva
+            const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
+            reservation.billing_total = totalBilling;
+            reservation.is_fully_paid = totalBilling === 0;
+          } else {
+            reservation.billing_total = 0;
+            reservation.is_fully_paid = true;
+          }
+        } catch (error) {
+          console.warn(`Could not fetch billing for reservation ${reservation.reservation_id}:`, error);
+          // Si no se puede obtener la facturación, usar valores por defecto
+          reservation.billing_total = 0;
+          reservation.is_fully_paid = true;
+        }
+      }
+    }
+
+    // Retornar en el formato esperado
+    return {
+      status: 'success',
+      data: [finalReservations], // Empaquetar en array como espera la interfaz
+      meta: {
+        take: 100,
+        itemCount: finalReservations.length,
+        itemRemaining: 0,
+        hasNextPage: false,
+        cursor: ''
+      }
+    };
+  }
+
+  private async fetchReservationsByCheckIn(webCode: number, startDate: Date, endDate: Date): Promise<any[]> {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
     console.log('Fetching reservations with web_code:', webCode);
+    console.log('Date strings for API:', { startDateStr, endDateStr });
 
     // Intentar con diferentes parámetros para obtener TODAS las reservas
     const params = new URLSearchParams({
@@ -289,106 +441,8 @@ export class AviratoService {
       console.log('Sample from first group:', reservationsData.data[0]?.slice(0, 2));
     }
     
-    // Enriquecer reservas con datos de facturación y regímenes
-    if (reservationsData.status === 'success') {
-      const allReservations = reservationsData.data.flat();
-      console.log('Total reservations after flattening:', allReservations.length);
-      console.log('Sample reservation IDs:', allReservations.slice(0, 5).map(r => r.reservationId));
-      
-      // Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
-      let regimeMap = new Map<string, string>();
-      try {
-        const regimes = await this.getRegimes(webCode);
-        regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
-      } catch (error) {
-        console.warn('Could not fetch regimes, will use regime codes instead:', error);
-      }
-      
-      // Mapeo manual de operadores específicos del establecimiento
-      const operatorMap = new Map<number, string>([
-        [-1, "Motor de reservas"], // Cliente Hotel/Web directo
-        [0, "Todos los operadores"],
-        [1, "Channel Manager Booking.com"],
-        [28, "Channel Manager Google"],
-        [1003, "Travelzoo"], // Basado en los logs
-        // Agregar otros operadores específicos según se identifiquen
-      ]);
-      
-      // Intentar obtener operadores desde room-blocks primero, luego fallback a operators
-      try {
-        const roomBlocks = await this.getRoomBlocks(webCode);
-        console.log('=== ROOM BLOCKS OPERATORS DEBUG ===');
-        console.log('Total room blocks received:', roomBlocks.length);
-        
-        // Crear mapeo de operadores desde room-blocks (priority mapping)
-        const roomBlockOperatorMap = new Map<number, string>();
-        roomBlocks.forEach(block => {
-          roomBlockOperatorMap.set(block.operator_id, block.operator_name);
-        });
-        
-        console.log('Operators from room blocks:', Array.from(roomBlockOperatorMap.entries()));
-        
-        // Agregar operadores de room-blocks al mapeo (sobrescribe para mejor precisión)
-        roomBlockOperatorMap.forEach((name, id) => {
-          operatorMap.set(id, name);
-        });
-      } catch (error) {
-        console.warn('Could not fetch room blocks operators, trying fallback:', error);
-        
-        // Fallback: intentar obtener operadores de la API tradicional
-        try {
-          const operators = await this.getOperators(webCode);
-          console.log('=== OPERATORS DEBUG ===');
-          console.log('Total operators received from API:', operators.length);
-          
-          // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
-          operators.forEach(op => {
-            if (!operatorMap.has(op.id)) {
-              operatorMap.set(op.id, op.name);
-            }
-          });
-        } catch (error) {
-          console.warn('Could not fetch operators, will use operator IDs instead:', error);
-        }
-      }
-      
-      // Obtener datos de facturación para cada reserva
-      console.log('=== RESERVATION OPERATORS DEBUG ===');
-      const uniqueOperatorIds = [...new Set(allReservations.map(r => r.operator_id || r.operatorId))];
-      console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
-      
-      for (const reservation of allReservations) {
-        // Agregar nombre del régimen
-        reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
-        
-        // Agregar nombre del operador/canal
-        const operatorId = reservation.operator_id || reservation.operatorId;
-        console.log(`Reservation ${reservation.reservationId}: operatorId = ${operatorId}`);
-        reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
-        console.log(`Mapped to: ${reservation.operator_name}`);
-        
-        try {
-          const reservationId = reservation.reservation_id || reservation.reservationId;
-          const billingData = await this.getBillingForReservation(reservationId, webCode);
-          if (billingData && billingData.length > 0) {
-            // Sumar todos los totales de las facturas de esta reserva
-            const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
-            reservation.billing_total = totalBilling;
-            reservation.is_fully_paid = totalBilling === 0;
-          } else {
-            reservation.billing_total = 0;
-            reservation.is_fully_paid = true;
-          }
-        } catch (error) {
-          console.warn(`Could not fetch billing for reservation ${reservation.reservation_id}:`, error);
-          // Si no se puede obtener la facturación, usar valores por defecto
-          reservation.billing_total = 0;
-          reservation.is_fully_paid = true;
-        }
-      }
-    }
-
-    return reservationsData;
+    // Retornar las reservas aplanadas
+    return reservationsData.status === 'success' ? reservationsData.data.flat() : [];
   }
 
   async getBillingForReservation(reservationId: number, webCode: number): Promise<AviratoBillingData[]> {
@@ -476,13 +530,19 @@ export class AviratoService {
     return operatorsResponse.status === 'success' ? operatorsResponse.data : [];
   }
 
-  async getRoomBlocks(webCode: number): Promise<AviratoRoomBlock[]> {
+  async getRoomBlocks(webCode: number, startDate?: Date, endDate?: Date): Promise<AviratoRoomBlock[]> {
     if (!this.isAuthenticated()) {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
+    // Si no se proporcionan fechas, usar un rango por defecto
+    const start = startDate || new Date();
+    const end = endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días hacia adelante
+
     const params = new URLSearchParams({
       web_code: webCode.toString(),
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
     });
 
     const url = `${API_BASE_URL}/v3/channel-manager/room-blocks?${params}`;
