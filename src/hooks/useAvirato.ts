@@ -3,7 +3,7 @@ import { aviratoService, type AviratoCredentials, type AviratoReservation } from
 import { useToast } from '@/hooks/use-toast';
 
 export const useAvirato = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(aviratoService.isAuthenticated());
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [reservations, setReservations] = useState<AviratoReservation[]>([]);
   const { toast } = useToast();
@@ -16,11 +16,8 @@ export const useAvirato = () => {
       console.log('Authentication response:', response);
       
       if (response.status === 'success') {
-        console.log('Authentication successful, updating state...');
-        // Force check the authentication status after successful login
-        const isNowAuthenticated = aviratoService.isAuthenticated();
-        console.log('Service authentication check result:', isNowAuthenticated);
-        setIsAuthenticated(isNowAuthenticated);
+        console.log('Authentication successful, setting state to true');
+        setIsAuthenticated(true);
         console.log('State updated to authenticated');
         toast({
           title: "Autenticación exitosa",
