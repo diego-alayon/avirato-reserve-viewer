@@ -382,7 +382,7 @@ const Reservations = () => {
                         <Badge 
                           variant={
                             reservation.status.toLowerCase().includes('confirmada') 
-                              ? 'default' 
+                              ? 'confirmada' 
                               : 'secondary'
                           }
                         >
@@ -392,8 +392,8 @@ const Reservations = () => {
                       <TableCell className="py-2 px-2">
                         <Badge 
                           variant={reservation.is_fully_paid !== undefined 
-                            ? (reservation.is_fully_paid ? 'default' : 'destructive')
-                            : (reservation.is_paid ? 'default' : 'destructive')
+                            ? (reservation.is_fully_paid ? 'pagado' : 'destructive')
+                            : (reservation.is_paid ? 'pagado' : 'destructive')
                           }
                         >
                           {reservation.is_fully_paid !== undefined 
