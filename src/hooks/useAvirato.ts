@@ -17,7 +17,10 @@ export const useAvirato = () => {
       
       if (response.status === 'success') {
         console.log('Authentication successful, updating state...');
-        setIsAuthenticated(true);
+        // Force check the authentication status after successful login
+        const isNowAuthenticated = aviratoService.isAuthenticated();
+        console.log('Service authentication check result:', isNowAuthenticated);
+        setIsAuthenticated(isNowAuthenticated);
         console.log('State updated to authenticated');
         toast({
           title: "Autenticación exitosa",

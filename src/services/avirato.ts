@@ -179,6 +179,13 @@ export class AviratoService {
 
   isAuthenticated(): boolean {
     this.loadTokenFromStorage();
+    console.log('Checking authentication status:', {
+      hasToken: !!this.token,
+      hasExpiry: !!this.tokenExpiry,
+      currentTime: new Date().toISOString(),
+      expiry: this.tokenExpiry?.toISOString(),
+      isValid: this.token !== null && this.tokenExpiry !== null && new Date() < this.tokenExpiry
+    });
     return this.token !== null && this.tokenExpiry !== null && new Date() < this.tokenExpiry;
   }
 
