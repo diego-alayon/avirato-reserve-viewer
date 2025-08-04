@@ -230,7 +230,7 @@ export class AviratoService {
       start_date: startDateStr,
       end_date: endDateStr,
       charges: 'false',
-      take: '1000'  // Aumentar el límite
+      take: '100'  // API máximo es 100
     });
 
     const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
