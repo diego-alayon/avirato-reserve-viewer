@@ -78,7 +78,7 @@ const Reservations = () => {
       ? `${reservation.client.name} ${reservation.client.surname}`
       : reservation.client_name || reservation.client_id || '';
     
-    const reservationId = reservation.reservation_id?.toString() || '';
+    const reservationId = (reservation.reservation_id || reservation.reservationId)?.toString() || '';
     
     // Asegurar que clientName y searchTerm no sean undefined antes de usar toLowerCase
     const safeClientName = clientName || '';
@@ -326,9 +326,9 @@ const Reservations = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.reservation_id}>
+                    <TableRow key={reservation.reservation_id || reservation.reservationId}>
                       <TableCell className="font-medium">
-                        #{reservation.reservation_id}
+                        #{reservation.reservation_id || reservation.reservationId}
                       </TableCell>
                       <TableCell>
                         {reservation.client?.name && reservation.client?.surname 
