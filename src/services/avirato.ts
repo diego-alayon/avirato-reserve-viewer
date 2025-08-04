@@ -230,7 +230,7 @@ export class AviratoService {
       take: '100'  // API máximo es 100
     });
 
-    const url = `${API_BASE_URL}/v3/channel-manager/operators?${params}`;
+    const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
     
     const response = await fetch(url, {
       method: 'GET',
