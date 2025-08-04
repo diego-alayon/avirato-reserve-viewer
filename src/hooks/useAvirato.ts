@@ -13,7 +13,7 @@ export const useAvirato = () => {
     try {
       const response = await aviratoService.authenticate(credentials);
       
-      if (response.token) {
+      if (response.status === 'success') {
         setIsAuthenticated(true);
         toast({
           title: "Autenticación exitosa",
@@ -50,11 +50,15 @@ export const useAvirato = () => {
     try {
       const response = await aviratoService.getReservations();
       
-      setReservations(response.data);
-      toast({
-        title: "Reservas cargadas",
-        description: `Se encontraron ${response.data.length} reservas`,
-      });
+      if (response.status === 'success') {
+        setReservations(response.data);
+        toast({
+          title: "Reservas cargadas",
+          description: `Se encontraron ${response.data.length} reservas`,
+        });
+      } else {
+        throw new Error('Failed to fetch reservations');
+      }
     } catch (error) {
       console.error('Reservations fetch error:', error);
       

@@ -4,7 +4,12 @@ export interface AviratoCredentials {
 }
 
 export interface AviratoAuthResponse {
-  token: string;
+  status: string;
+  data: {
+    token: string;
+    web_codes: number[];
+    expiry: string;
+  };
 }
 
 export interface AviratoReservation {
@@ -59,15 +64,16 @@ export class AviratoService {
 
     const data: AviratoAuthResponse = await response.json();
     
-    // Store token directly since the response only contains the token
-    this.token = data.token;
-    this.webCodes = []; // No web codes in v3 API
-    this.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // Set expiry to 24 hours from now
-    
-    // Store token in localStorage for persistence
-    localStorage.setItem('avirato_token', this.token);
-    localStorage.setItem('avirato_web_codes', JSON.stringify(this.webCodes));
-    localStorage.setItem('avirato_token_expiry', this.tokenExpiry.toISOString());
+    if (data.status === 'success') {
+      this.token = data.data.token;
+      this.webCodes = data.data.web_codes;
+      this.tokenExpiry = new Date(data.data.expiry);
+      
+      // Store token in localStorage for persistence
+      localStorage.setItem('avirato_token', this.token);
+      localStorage.setItem('avirato_web_codes', JSON.stringify(this.webCodes));
+      localStorage.setItem('avirato_token_expiry', data.data.expiry);
+    }
 
     return data;
   }
