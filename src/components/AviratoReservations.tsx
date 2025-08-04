@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   RefreshCw, 
   LogOut, 
@@ -11,7 +12,6 @@ import {
   Hotel
 } from 'lucide-react';
 import { useAvirato } from '@/hooks/useAvirato';
-import { ReservationCard } from './ReservationCard';
 
 export const AviratoReservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
@@ -150,14 +150,63 @@ export const AviratoReservations = () => {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {reservations.map((reservation) => (
-                  <ReservationCard 
-                    key={reservation.reservation_id} 
-                    reservation={reservation}
-                  />
-                ))}
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID Reserva</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Check-in</TableHead>
+                    <TableHead>Check-out</TableHead>
+                    <TableHead>Huéspedes</TableHead>
+                    <TableHead>Precio</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Régimen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reservations.map((reservation) => (
+                    <TableRow key={reservation.reservation_id}>
+                      <TableCell className="font-medium">
+                        #{reservation.reservation_id}
+                      </TableCell>
+                      <TableCell>{reservation.client_name}</TableCell>
+                      <TableCell>
+                        {new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(reservation.check_out_date).toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        {reservation.adults} adultos
+                        {reservation.children > 0 && `, ${reservation.children} niños`}
+                      </TableCell>
+                      <TableCell className="font-semibold">
+                        €{reservation.price}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            reservation.status.toLowerCase().includes('confirmada') 
+                              ? 'default' 
+                              : 'secondary'
+                          }
+                        >
+                          {reservation.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{reservation.regime}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
