@@ -235,6 +235,12 @@ export class AviratoService {
     const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
     console.log('=== RESERVATION LOGIC DEBUG ===');
+    console.log('INPUT DATES RECEIVED:');
+    console.log('startDate (raw):', startDate);
+    console.log('endDate (raw):', endDate);
+    console.log('startDate ISO:', startDate?.toISOString());
+    console.log('endDate ISO:', endDate?.toISOString());
+    
     console.log('Selected period:', { selectedStart, selectedEnd });
     console.log('Selected period strings:', { 
       start: selectedStart.toISOString().split('T')[0], 
