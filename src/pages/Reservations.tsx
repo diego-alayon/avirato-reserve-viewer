@@ -386,7 +386,7 @@ const Reservations = () => {
                               : 'secondary'
                           }
                         >
-                          {reservation.status}
+                          {reservation.status.replace('Reserva confirmada', 'Confirmada')}
                         </Badge>
                       </TableCell>
                       <TableCell className="py-2 px-2">
