@@ -219,8 +219,11 @@ export class AviratoService {
     const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
     console.log('=== RESERVATION FETCH WITH PAGINATION ===');
+    console.log('Original dates:', { startDate, endDate });
+    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
     console.log('Date range:', { startDateStr, endDateStr });
     console.log('Web code:', webCode);
+    console.log('Expected reservations in channel manager: 14 (1-2 Aug 2025)');
 
     // Usar paginación para obtener todas las reservas
     const allReservationsData: AviratoReservation[][] = [];
@@ -236,10 +239,14 @@ export class AviratoService {
         start_date: startDateStr,
         end_date: endDateStr,
         date_type: 'DEFAULT',
-        status: 'ACTIVAS',
+        // Probando sin filtro de status para obtener todas las reservas
+        // status: 'ACTIVAS',
         charges: 'false',
         take: '100'
       });
+      
+      console.log('=== TESTING WITHOUT STATUS FILTER ===');
+      console.log('Parameters being sent:', Object.fromEntries(params));
 
       // Agregar cursor solo si existe (páginas siguientes)
       if (cursor) {
