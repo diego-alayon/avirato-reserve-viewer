@@ -300,7 +300,8 @@ export class AviratoService {
         reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
         
         // Agregar nombre del operador/canal
-        reservation.operator_name = operatorMap.get(reservation.operator_id) || `Operador ${reservation.operator_id}`;
+        const operatorId = reservation.operator_id || reservation.operatorId;
+        reservation.operator_name = operatorMap.get(operatorId) || operatorMap.get(-1) || `Operador ${operatorId}`;
         
         try {
           const billingData = await this.getBillingForReservation(reservation.reservation_id, webCode);
