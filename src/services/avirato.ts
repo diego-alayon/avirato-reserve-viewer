@@ -211,9 +211,15 @@ export class AviratoService {
     const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate || new Date();
 
-    const startDateStr = start.toISOString().split('T')[0];
-    const endDateStr = end.toISOString().split('T')[0];
+    // Ensure we're working with local dates and extend the end date to cover the full day
+    const adjustedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1); // Add 1 day to include end date
 
+    const startDateStr = adjustedStart.toISOString().split('T')[0];
+    const endDateStr = adjustedEnd.toISOString().split('T')[0];
+
+    console.log('Original dates:', { startDate, endDate });
+    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
     console.log('Fetching reservations with web_code:', webCode, 'from:', startDateStr, 'to:', endDateStr);
 
     const params = new URLSearchParams({
