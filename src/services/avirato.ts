@@ -1,3 +1,5 @@
+import { logger } from '@/utils/logger';
+
 export interface AviratoCredentials {
   email: string;
   password: string;
@@ -157,7 +159,7 @@ export class AviratoService {
   private tokenExpiry: Date | null = null;
 
   async authenticate(credentials: AviratoCredentials): Promise<AviratoAuthResponse> {
-    console.log('Attempting authentication with:', { email: credentials.email, url: `${API_BASE_URL}/v3/token/login` });
+    logger.debug('Starting authentication process');
     
     const response = await fetch(`${API_BASE_URL}/v3/token/login`, {
       method: 'POST',
@@ -168,12 +170,11 @@ export class AviratoService {
       body: JSON.stringify(credentials),
     });
 
-    console.log('Authentication response status:', response.status);
-    console.log('Authentication response headers:', Object.fromEntries(response.headers.entries()));
+    logger.debug('Authentication response received', { status: response.status });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Authentication failed. Response body:', errorText);
+      logger.error('Authentication failed', { status: response.status });
       throw new Error(`Authentication failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
