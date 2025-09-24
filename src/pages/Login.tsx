@@ -8,8 +8,8 @@ import { Loader2, Hotel, Lock, Mail } from 'lucide-react';
 import { useAvirato } from '@/hooks/useAvirato';
 
 const Login = () => {
-  const [email, setEmail] = useState('dalayong@gmail.com');
-  const [password, setPassword] = useState('Bemoc@31');
+  const [email, setEmail] = useState(import.meta.env.VITE_AVIRATO_DEFAULT_EMAIL || '');
+  const [password, setPassword] = useState(import.meta.env.VITE_AVIRATO_DEFAULT_PASSWORD || '');
   const { isLoading, authenticate } = useAvirato();
   const navigate = useNavigate();
 
