@@ -14,8 +14,11 @@ import {
   Users, 
   CreditCard,
   Hotel,
-  Search
+  Search,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
 import { useState } from 'react';
@@ -35,6 +38,8 @@ const Reservations = () => {
     from: undefined,
     to: undefined
   });
+  const [showCheckIn, setShowCheckIn] = useState(false);
+  const [showCheckOut, setShowCheckOut] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -72,7 +77,7 @@ const Reservations = () => {
   // Filtrar reservas por término de búsqueda
   console.log('Total reservations loaded:', reservations.length);
   console.log('Search term:', searchTerm);
-  const filteredReservations = reservations.filter(reservation => {
+  const searchFilteredReservations = reservations.filter(reservation => {
     if (!searchTerm?.trim()) return true;
     
     const clientName = reservation.client?.name && reservation.client?.surname 
@@ -92,7 +97,55 @@ const Reservations = () => {
     return safeClientName.includes(safeSearchTerm) ||
            safeReservationId.includes(safeSearchTerm);
   });
-  console.log('Filtered reservations count:', filteredReservations.length);
+
+  // Aplicar filtros de Check-in/Check-out
+  console.log('=== APPLYING CHECK-IN/CHECK-OUT FILTERS ===');
+  console.log('Filter state:', { showCheckIn, showCheckOut });
+  console.log('Date range:', { from: dateRange.from, to: dateRange.to });
+  
+  const filteredReservations = searchFilteredReservations.filter(reservation => {
+    // Si no hay filtros de fecha específicos, mostrar todas las reservas
+    if (!showCheckIn && !showCheckOut) {
+      return true;
+    }
+
+    // Si hay un rango de fechas seleccionado, aplicar los filtros
+    if (dateRange.from && dateRange.to) {
+      const rangeStart = new Date(dateRange.from);
+      const rangeEnd = new Date(dateRange.to);
+      
+      // Obtener las fechas de check-in y check-out de la reserva
+      const checkInDate = new Date(reservation.check_in_date || reservation.checkInDate);
+      const checkOutDate = new Date(reservation.check_out_date || reservation.checkOutDate);
+      
+      let includeReservation = false;
+      
+      // Filtro Check-in: incluir si check-in está en el rango
+      if (showCheckIn) {
+        if (checkInDate >= rangeStart && checkInDate <= rangeEnd) {
+          includeReservation = true;
+          console.log(`✅ Check-in filter: Including reservation ${reservation.reservation_id || reservation.reservationId} (check-in: ${checkInDate.toISOString().split('T')[0]})`);
+        }
+      }
+      
+      // Filtro Check-out: incluir si check-out está en el rango
+      if (showCheckOut) {
+        if (checkOutDate >= rangeStart && checkOutDate <= rangeEnd) {
+          includeReservation = true;
+          console.log(`✅ Check-out filter: Including reservation ${reservation.reservation_id || reservation.reservationId} (check-out: ${checkOutDate.toISOString().split('T')[0]})`);
+        }
+      }
+      
+      return includeReservation;
+    }
+    
+    // Si no hay rango de fechas, mostrar todas las reservas
+    return true;
+  });
+
+  console.log(`🎯 After all filters: ${filteredReservations.length}/${reservations.length} reservations`);
+  console.log('Search filtered:', searchFilteredReservations.length);
+  console.log('Final filtered:', filteredReservations.length);
 
   const totalReservations = filteredReservations.length;
   const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
@@ -203,6 +256,44 @@ const Reservations = () => {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {/* Filtros de Check-in/Check-out */}
+              <div className="flex items-center gap-4 px-4 py-2 border rounded-lg bg-background">
+                <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="show-checkin" 
+                    checked={showCheckIn}
+                    onCheckedChange={setShowCheckIn}
+                  />
+                  <label 
+                    htmlFor="show-checkin" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
+                  >
+                    <ArrowRight className="h-3 w-3 text-green-600" />
+                    Check-in
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="show-checkout" 
+                    checked={showCheckOut}
+                    onCheckedChange={setShowCheckOut}
+                  />
+                  <label 
+                    htmlFor="show-checkout" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
+                  >
+                    <ArrowLeft className="h-3 w-3 text-red-600" />
+                    Check-out
+                  </label>
+                </div>
+                {!showCheckIn && !showCheckOut && (
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                    Todas las reservas
+                  </span>
+                )}
+              </div>
               
               <Button 
                 onClick={handleFetchReservations}
