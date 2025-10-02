@@ -73,7 +73,7 @@ const Reservations = () => {
   console.log('Total reservations loaded:', reservations.length);
   console.log('Search term:', searchTerm);
   const filteredReservations = reservations.filter(reservation => {
-    if (!searchTerm) return true;
+    if (!searchTerm?.trim()) return true;
     
     const clientName = reservation.client?.name && reservation.client?.surname 
       ? `${reservation.client.name} ${reservation.client.surname}`
@@ -81,20 +81,25 @@ const Reservations = () => {
     
     const reservationId = (reservation.reservation_id || reservation.reservationId)?.toString() || '';
     
-    // Asegurar que clientName y searchTerm no sean undefined antes de usar toLowerCase
-    const safeClientName = clientName || '';
-    const safeSearchTerm = searchTerm || '';
+    // Early return if no data to search
+    if (!clientName && !reservationId) return false;
     
-    return safeClientName.toLowerCase().includes(safeSearchTerm.toLowerCase()) ||
-           reservationId.includes(safeSearchTerm);
+    // Safe string operations with null checks
+    const safeClientName = (clientName || '').toString().toLowerCase();
+    const safeReservationId = (reservationId || '').toString().toLowerCase();
+    const safeSearchTerm = searchTerm.trim().toLowerCase();
+    
+    return safeClientName.includes(safeSearchTerm) ||
+           safeReservationId.includes(safeSearchTerm);
   });
   console.log('Filtered reservations count:', filteredReservations.length);
 
   const totalReservations = filteredReservations.length;
   const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
-  const confirmedReservations = filteredReservations.filter(res => 
-    res.status.toLowerCase().includes('confirmada') || res.status.toLowerCase().includes('confirmed')
-  ).length;
+  const confirmedReservations = filteredReservations.filter(res => {
+    const status = (res.status || '').toString().toLowerCase();
+    return status.includes('confirmada') || status.includes('confirmed');
+  }).length;
 
   const stats = [
     {
