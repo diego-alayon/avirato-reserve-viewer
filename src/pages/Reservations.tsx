@@ -98,33 +98,47 @@ const Reservations = () => {
            safeReservationId.includes(safeSearchTerm);
   });
 
-  // Aplicar filtros de Check-in/Check-out
+  // Aplicar filtros de Check-in/Check-out SOLO si están activados
   console.log('=== APPLYING CHECK-IN/CHECK-OUT FILTERS ===');
   console.log('Filter state:', { showCheckIn, showCheckOut });
   console.log('Date range:', { from: dateRange.from, to: dateRange.to });
+  console.log('Reservations before filtering:', searchFilteredReservations.length);
   
   const filteredReservations = searchFilteredReservations.filter(reservation => {
-    // Si no hay filtros de fecha específicos, mostrar todas las reservas
+    // IMPORTANTE: Si NO hay filtros específicos activados, mostrar TODAS las reservas
+    // (El API ya trajo las reservas del rango correcto)
     if (!showCheckIn && !showCheckOut) {
+      console.log(`📄 No filters active - including reservation ${reservation.reservation_id}`);
       return true;
     }
 
-    // Si hay un rango de fechas seleccionado, aplicar los filtros
+    // Solo aplicar filtros específicos si hay checkboxes activados
     if (dateRange.from && dateRange.to) {
       const rangeStart = new Date(dateRange.from);
       const rangeEnd = new Date(dateRange.to);
       
-      // Obtener las fechas de check-in y check-out de la reserva
-      const checkInDate = new Date(reservation.check_in_date || reservation.checkInDate);
-      const checkOutDate = new Date(reservation.check_out_date || reservation.checkOutDate);
+      // Parsear fechas del formato "2023-10-25 12:00:00" 
+      const checkInStr = reservation.check_in_date || reservation.checkInDate;
+      const checkOutStr = reservation.check_out_date || reservation.checkOutDate;
+      
+      // Obtener solo la fecha (sin hora) para comparación
+      const checkInDate = new Date(checkInStr.split(' ')[0]);
+      const checkOutDate = new Date(checkOutStr.split(' ')[0]);
       
       let includeReservation = false;
+      
+      console.log(`🔍 Analyzing reservation ${reservation.reservation_id}:`);
+      console.log(`   Check-in: ${checkInStr} -> ${checkInDate.toISOString().split('T')[0]}`);
+      console.log(`   Check-out: ${checkOutStr} -> ${checkOutDate.toISOString().split('T')[0]}`);
+      console.log(`   Range: ${rangeStart.toISOString().split('T')[0]} to ${rangeEnd.toISOString().split('T')[0]}`);
       
       // Filtro Check-in: incluir si check-in está en el rango
       if (showCheckIn) {
         if (checkInDate >= rangeStart && checkInDate <= rangeEnd) {
           includeReservation = true;
-          console.log(`✅ Check-in filter: Including reservation ${reservation.reservation_id || reservation.reservationId} (check-in: ${checkInDate.toISOString().split('T')[0]})`);
+          console.log(`✅ Check-in filter: INCLUDING reservation ${reservation.reservation_id} (check-in: ${checkInDate.toISOString().split('T')[0]} is in range)`);
+        } else {
+          console.log(`❌ Check-in filter: EXCLUDING reservation ${reservation.reservation_id} (check-in: ${checkInDate.toISOString().split('T')[0]} is NOT in range)`);
         }
       }
       
@@ -132,14 +146,18 @@ const Reservations = () => {
       if (showCheckOut) {
         if (checkOutDate >= rangeStart && checkOutDate <= rangeEnd) {
           includeReservation = true;
-          console.log(`✅ Check-out filter: Including reservation ${reservation.reservation_id || reservation.reservationId} (check-out: ${checkOutDate.toISOString().split('T')[0]})`);
+          console.log(`✅ Check-out filter: INCLUDING reservation ${reservation.reservation_id} (check-out: ${checkOutDate.toISOString().split('T')[0]} is in range)`);
+        } else {
+          console.log(`❌ Check-out filter: EXCLUDING reservation ${reservation.reservation_id} (check-out: ${checkOutDate.toISOString().split('T')[0]} is NOT in range)`);
         }
       }
       
+      console.log(`   Final decision: ${includeReservation ? 'INCLUDE' : 'EXCLUDE'}`);
       return includeReservation;
     }
     
     // Si no hay rango de fechas, mostrar todas las reservas
+    console.log(`📄 No date range - including reservation ${reservation.reservation_id}`);
     return true;
   });
 
