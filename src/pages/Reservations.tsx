@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
+import { safeDateFormatSimple } from '@/utils/dateHelpers';
 import { 
   RefreshCw, 
   LogOut, 
@@ -345,28 +346,10 @@ const Reservations = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap py-2 px-2">
-                        {(() => {
-                          const checkInDate = reservation.checkInDate || reservation.check_in_date;
-                          if (!checkInDate) return "No disponible";
-                          const date = new Date(checkInDate);
-                          return isNaN(date.getTime()) ? "Fecha inválida" : date.toLocaleDateString("es-ES", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric"
-                          });
-                        })()}
+                        {safeDateFormatSimple(reservation.checkInDate || reservation.check_in_date)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap py-2 px-2">
-                        {(() => {
-                          const checkOutDate = reservation.checkOutDate || reservation.check_out_date;
-                          if (!checkOutDate) return "No disponible";
-                          const date = new Date(checkOutDate);
-                          return isNaN(date.getTime()) ? "Fecha inválida" : date.toLocaleDateString("es-ES", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric"
-                          });
-                        })()}
+                        {safeDateFormatSimple(reservation.checkOutDate || reservation.check_out_date)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap py-2 px-2">
                         {reservation.regime_name || reservation.regime}
