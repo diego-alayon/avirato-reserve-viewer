@@ -6,19 +6,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { safeDateFormatSimple } from '@/utils/dateHelpers';
-import { 
-  RefreshCw, 
-  LogOut, 
-  Calendar as CalendarIcon, 
-  TrendingUp, 
-  Users, 
+import {
+  RefreshCw,
+  LogOut,
+  Calendar as CalendarIcon,
+  TrendingUp,
+  Users,
   CreditCard,
   Hotel,
-  Search,
-  ArrowRight,
-  ArrowLeft
+  Search
 } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
 import { useState } from 'react';
@@ -38,8 +35,6 @@ const Reservations = () => {
     from: undefined,
     to: undefined
   });
-  const [showCheckIn, setShowCheckIn] = useState(false);
-  const [showCheckOut, setShowCheckOut] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -65,7 +60,16 @@ const Reservations = () => {
 
   const handleFetchReservations = () => {
     if (dateRange.from && dateRange.to) {
-      fetchReservations(dateRange.from, dateRange.to);
+      // Expandir el rango para obtener todas las reservas que puedan estar activas
+      // Por ejemplo, si seleccionas 9 de noviembre, necesitamos buscar desde antes
+      // para capturar reservas que empezaron antes pero están activas
+      const expandedStart = new Date(dateRange.from);
+      expandedStart.setDate(expandedStart.getDate() - 60); // 60 días antes
+
+      const expandedEnd = new Date(dateRange.to);
+      expandedEnd.setDate(expandedEnd.getDate() + 60); // 60 días después
+
+      fetchReservations(expandedStart, expandedEnd);
     } else {
       // Si no hay fechas seleccionadas, usar valores por defecto (últimos 30 días)
       const defaultEnd = new Date();
@@ -74,96 +78,62 @@ const Reservations = () => {
     }
   };
 
-  // Filtrar reservas por término de búsqueda
-  console.log('Total reservations loaded:', reservations.length);
-  console.log('Search term:', searchTerm);
-  const searchFilteredReservations = reservations.filter(reservation => {
-    if (!searchTerm?.trim()) return true;
-    
-    const clientName = reservation.client?.name && reservation.client?.surname 
-      ? `${reservation.client.name} ${reservation.client.surname}`
-      : reservation.client_name || reservation.client_id || '';
-    
-    const reservationId = (reservation.reservation_id || reservation.reservationId)?.toString() || '';
-    
-    // Early return if no data to search
-    if (!clientName && !reservationId) return false;
-    
-    // Safe string operations with null checks
-    const safeClientName = (clientName || '').toString().toLowerCase();
-    const safeReservationId = (reservationId || '').toString().toLowerCase();
-    const safeSearchTerm = searchTerm.trim().toLowerCase();
-    
-    return safeClientName.includes(safeSearchTerm) ||
-           safeReservationId.includes(safeSearchTerm);
-  });
+  // Filtrar reservas por término de búsqueda y rango de fechas
+  const filteredReservations = reservations.filter(reservation => {
+    // Aplicar filtro de búsqueda
+    if (searchTerm?.trim()) {
+      const clientName = reservation.client?.name && reservation.client?.surname
+        ? `${reservation.client.name} ${reservation.client.surname}`
+        : reservation.client_name || reservation.client_id || '';
 
-  // Aplicar filtros de Check-in/Check-out SOLO si están activados
-  console.log('=== APPLYING CHECK-IN/CHECK-OUT FILTERS ===');
-  console.log('Filter state:', { showCheckIn, showCheckOut });
-  console.log('Date range:', { from: dateRange.from, to: dateRange.to });
-  console.log('Reservations before filtering:', searchFilteredReservations.length);
-  
-  const filteredReservations = searchFilteredReservations.filter(reservation => {
-    // IMPORTANTE: Si NO hay filtros específicos activados, mostrar TODAS las reservas
-    // (El API ya trajo las reservas del rango correcto)
-    if (!showCheckIn && !showCheckOut) {
-      console.log(`📄 No filters active - including reservation ${reservation.reservation_id}`);
-      return true;
+      const reservationId = (reservation.reservation_id || reservation.reservationId)?.toString() || '';
+
+      if (!clientName && !reservationId) return false;
+
+      const safeClientName = (clientName || '').toString().toLowerCase();
+      const safeReservationId = (reservationId || '').toString().toLowerCase();
+      const safeSearchTerm = searchTerm.trim().toLowerCase();
+
+      const matchesSearch = safeClientName.includes(safeSearchTerm) ||
+                           safeReservationId.includes(safeSearchTerm);
+
+      if (!matchesSearch) return false;
     }
 
-    // Solo aplicar filtros específicos si hay checkboxes activados
+    // Aplicar filtro de fechas si hay rango seleccionado
     if (dateRange.from && dateRange.to) {
-      const rangeStart = new Date(dateRange.from);
-      const rangeEnd = new Date(dateRange.to);
-      
-      // Parsear fechas del formato "2023-10-25 12:00:00" 
+      const rangeStart = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+      const rangeEnd = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+
       const checkInStr = reservation.check_in_date || reservation.checkInDate;
       const checkOutStr = reservation.check_out_date || reservation.checkOutDate;
-      
-      // Obtener solo la fecha (sin hora) para comparación
-      const checkInDate = new Date(checkInStr.split(' ')[0]);
-      const checkOutDate = new Date(checkOutStr.split(' ')[0]);
-      
-      let includeReservation = false;
-      
-      console.log(`🔍 Analyzing reservation ${reservation.reservation_id}:`);
-      console.log(`   Check-in: ${checkInStr} -> ${checkInDate.toISOString().split('T')[0]}`);
-      console.log(`   Check-out: ${checkOutStr} -> ${checkOutDate.toISOString().split('T')[0]}`);
-      console.log(`   Range: ${rangeStart.toISOString().split('T')[0]} to ${rangeEnd.toISOString().split('T')[0]}`);
-      
-      // Filtro Check-in: incluir si check-in está en el rango
-      if (showCheckIn) {
-        if (checkInDate >= rangeStart && checkInDate <= rangeEnd) {
-          includeReservation = true;
-          console.log(`✅ Check-in filter: INCLUDING reservation ${reservation.reservation_id} (check-in: ${checkInDate.toISOString().split('T')[0]} is in range)`);
-        } else {
-          console.log(`❌ Check-in filter: EXCLUDING reservation ${reservation.reservation_id} (check-in: ${checkInDate.toISOString().split('T')[0]} is NOT in range)`);
-        }
-      }
-      
-      // Filtro Check-out: incluir si check-out está en el rango
-      if (showCheckOut) {
-        if (checkOutDate >= rangeStart && checkOutDate <= rangeEnd) {
-          includeReservation = true;
-          console.log(`✅ Check-out filter: INCLUDING reservation ${reservation.reservation_id} (check-out: ${checkOutDate.toISOString().split('T')[0]} is in range)`);
-        } else {
-          console.log(`❌ Check-out filter: EXCLUDING reservation ${reservation.reservation_id} (check-out: ${checkOutDate.toISOString().split('T')[0]} is NOT in range)`);
-        }
-      }
-      
-      console.log(`   Final decision: ${includeReservation ? 'INCLUDE' : 'EXCLUDE'}`);
-      return includeReservation;
+
+      // Parse dates
+      const checkInDateStr = checkInStr.split(' ')[0];
+      const checkOutDateStr = checkOutStr.split(' ')[0];
+
+      const [cyear, cmonth, cday] = checkInDateStr.split('-').map(Number);
+      const checkInDate = new Date(cyear, cmonth - 1, cday);
+
+      const [oyear, omonth, oday] = checkOutDateStr.split('-').map(Number);
+      const checkOutDate = new Date(oyear, omonth - 1, oday);
+
+      // Mostrar si:
+      // 1. Check-in está en el rango
+      const checkInInRange = checkInDate >= rangeStart && checkInDate <= rangeEnd;
+
+      // 2. Check-out está en el rango
+      const checkOutInRange = checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
+
+      // 3. Está activa durante el rango (check-in antes, check-out después)
+      const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
+
+      return checkInInRange || checkOutInRange || isActive;
     }
-    
-    // Si no hay rango de fechas, mostrar todas las reservas
-    console.log(`📄 No date range - including reservation ${reservation.reservation_id}`);
+
     return true;
   });
 
-  console.log(`🎯 After all filters: ${filteredReservations.length}/${reservations.length} reservations`);
-  console.log('Search filtered:', searchFilteredReservations.length);
-  console.log('Final filtered:', filteredReservations.length);
 
   const totalReservations = filteredReservations.length;
   const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
@@ -275,44 +245,6 @@ const Reservations = () => {
                 </PopoverContent>
               </Popover>
 
-              {/* Filtros de Check-in/Check-out */}
-              <div className="flex items-center gap-4 px-4 py-2 border rounded-lg bg-background">
-                <span className="text-sm font-medium text-muted-foreground">Filtros:</span>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="show-checkin" 
-                    checked={showCheckIn}
-                    onCheckedChange={setShowCheckIn}
-                  />
-                  <label 
-                    htmlFor="show-checkin" 
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
-                  >
-                    <ArrowRight className="h-3 w-3 text-green-600" />
-                    Check-in
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="show-checkout" 
-                    checked={showCheckOut}
-                    onCheckedChange={setShowCheckOut}
-                  />
-                  <label 
-                    htmlFor="show-checkout" 
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
-                  >
-                    <ArrowLeft className="h-3 w-3 text-red-600" />
-                    Check-out
-                  </label>
-                </div>
-                {!showCheckIn && !showCheckOut && (
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                    Todas las reservas
-                  </span>
-                )}
-              </div>
-              
               <Button 
                 onClick={handleFetchReservations}
                 disabled={isLoading}
@@ -428,6 +360,7 @@ const Reservations = () => {
                     <TableHead className="h-10 px-2">Cliente</TableHead>
                     <TableHead className="h-10 px-2">Teléfono</TableHead>
                     <TableHead className="h-10 px-2">Canal</TableHead>
+                    <TableHead className="h-10 px-2">Tipo de Villa</TableHead>
                     <TableHead className="h-10 px-2">Check-in</TableHead>
                     <TableHead className="h-10 px-2">Check-out</TableHead>
                     <TableHead className="h-10 px-2">Régimen</TableHead>
@@ -436,6 +369,7 @@ const Reservations = () => {
                     <TableHead className="h-10 px-2">Estado</TableHead>
                     <TableHead className="h-10 px-2">Estado de Pago</TableHead>
                     <TableHead className="h-10 px-2">Importe Pendiente</TableHead>
+                    <TableHead className="h-10 px-2">Extras</TableHead>
                     <TableHead className="h-10 px-2">Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -457,6 +391,11 @@ const Reservations = () => {
                       <TableCell className="whitespace-nowrap py-2 px-2">
                         <Badge variant="outline">
                           {reservation.operator_name || "No disponible"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap py-2 px-2">
+                        <Badge variant="secondary">
+                          {reservation.space_type_name || "No disponible"}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap py-2 px-2">
@@ -500,10 +439,15 @@ const Reservations = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-semibold py-2 px-2">
-                        {reservation.billing_total !== undefined 
+                        {reservation.billing_total !== undefined
                           ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
                           : '€0.00'
                         }
+                      </TableCell>
+                      <TableCell className="py-2 px-2">
+                        <span className={reservation.extras_text === 'No tiene extras contratados' ? 'text-muted-foreground text-sm' : 'text-sm'}>
+                          {reservation.extras_text || 'No tiene extras contratados'}
+                        </span>
                       </TableCell>
                       <TableCell className="max-w-xs truncate whitespace-nowrap py-2 px-2">
                         {reservation.client?.observations || reservation.observations || "Sin observaciones"}

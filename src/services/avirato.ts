@@ -115,6 +115,10 @@ export interface AviratoReservation {
   is_fully_paid?: boolean;
   // Campo para el nombre del operador/canal
   operator_name?: string;
+  // Campo para el nombre del tipo de espacio/villa (tipología)
+  space_type_name?: string;
+  // Campo para los extras contratados (texto formateado)
+  extras_text?: string;
 }
 
 export interface AviratoReservationsResponse {
@@ -151,7 +155,61 @@ export interface AviratoOperatorsResponse {
   data: AviratoOperator[];
 }
 
-const API_BASE_URL = 'https://apiv3.avirato.com';
+export interface AviratoSpace {
+  space_id: number;
+  space_name: string;
+  space_type_id: number;
+  space_subtype_id: number;
+  status: string;
+  online: number;
+}
+
+export interface AviratoSpaceSubtype {
+  space_subtype_id: number;
+  space_type_id: number;
+  space_subtype_name: string;
+  maximum_capacity: number;
+  maximum_adults: number;
+  standard_capacity: number;
+  spaces: AviratoSpace[];
+}
+
+export interface AviratoSpaceType {
+  space_type_id: number;
+  hotel_id: number;
+  name: string;
+  space_subtypes: AviratoSpaceSubtype[];
+}
+
+export interface AviratoSpaceTypesResponse {
+  status: string;
+  data: AviratoSpaceType[];
+}
+
+export interface AviratoExtra {
+  extra_id: number;
+  name: string;
+  price: number;
+  active: number;
+}
+
+export interface AviratoExtrasResponse {
+  status: string;
+  data: AviratoExtra[];
+}
+
+export interface AviratoReservationExtra {
+  extra_id: number;
+  quantity: number;
+}
+
+export interface AviratoReservationExtrasResponse {
+  status: string;
+  data: AviratoReservationExtra[];
+}
+
+// Use proxy in development to avoid CORS issues
+const API_BASE_URL = import.meta.env.DEV ? '/api' : 'https://apiv3.avirato.com';
 
 export class AviratoService {
   private token: string | null = null;
@@ -199,275 +257,224 @@ export class AviratoService {
       throw new Error('Not authenticated. Please authenticate first.');
     }
 
-    // Get the web_code from stored data
     const webCodes = this.getWebCodes();
     if (webCodes.length === 0) {
       throw new Error('No web codes available. Please authenticate again.');
     }
 
-    // Use the first web_code
     const webCode = webCodes[0];
-
-    // Use provided dates or default to last 30 days
     const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate || new Date();
 
-    // Ensure we're working with local dates and extend the end date to cover the full day
     const adjustedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1); // Add 1 day to include end date
+    const adjustedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
 
     const startDateStr = adjustedStart.toISOString().split('T')[0];
     const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
-    console.log('=== RESERVATION FETCH WITH PAGINATION ===');
-    console.log('Original dates:', { startDate, endDate });
-    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
+    console.log('=== FETCHING RESERVATIONS ===');
     console.log('Date range:', { startDateStr, endDateStr });
-    console.log('Web code:', webCode);
-    console.log('Expected reservations in channel manager: 14 (1-2 Aug 2025)');
 
-    // Usar paginación para obtener todas las reservas
     const allReservationsData: AviratoReservation[][] = [];
     let hasNextPage = true;
     let cursor: string | undefined;
     let pageCount = 0;
-    let totalItemCount = 0;
 
-    while (hasNextPage) {
-      // Configurar parámetros según la documentación de Avirato
+    while (hasNextPage && pageCount < 10) {
       const params = new URLSearchParams({
         web_code: webCode.toString(),
         start_date: startDateStr,
         end_date: endDateStr,
-        date_type: 'DEFAULT',
-        // Probando sin filtro de status para obtener todas las reservas
-        // status: 'ACTIVAS',
-        charges: 'false',
-        take: '100'
+        charges: 'true',  // Necesario para obtener extras
+        take: '50'  // Reducido para evitar timeout
       });
-      
-      console.log('=== TESTING WITHOUT STATUS FILTER ===');
-      console.log('Parameters being sent:', Object.fromEntries(params));
 
-      // Agregar cursor solo si existe (páginas siguientes)
       if (cursor) {
         params.append('cursor', cursor);
       }
 
       const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
-      console.log(`=== PAGE ${pageCount + 1} REQUEST ===`);
-      console.log('URL completa:', url);
-      console.log('Parámetros enviados:', Object.fromEntries(params));
-      console.log('Headers enviados:', {
-        'Authorization': `Bearer ${this.token?.substring(0, 20)}...`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      });
-      console.log('Cursor:', cursor || 'none (first page)');
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
+      console.log(`Fetching page ${pageCount + 1}...`);
 
-      console.log(`Response status: ${response.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to fetch reservations:', errorText);
-        
-        if (response.status === 401) {
-          this.clearToken();
-          throw new Error('Token expired. Please authenticate again.');
-        }
-        throw new Error(`Failed to fetch reservations: ${response.statusText} - ${errorText}`);
-      }
-
-      const pageData: AviratoReservationsResponse = await response.json();
-      console.log(`=== PAGE ${pageCount + 1} RESPONSE ===`);
-      console.log('Status:', pageData.status);
-      console.log('Meta completo:', JSON.stringify(pageData.meta, null, 2));
-      console.log('Estructura de data:', pageData.data ? `Array de ${pageData.data.length} grupos` : 'Sin data');
-      
-      // Log detallado de cada grupo de reservas
-      if (pageData.data && pageData.data.length > 0) {
-        pageData.data.forEach((group, groupIndex) => {
-          console.log(`Grupo ${groupIndex + 1}: ${group.length} reservas`);
-          group.forEach((reservation, resIndex) => {
-            console.log(`  Reserva ${resIndex + 1}:`, {
-              id: reservation.reservation_id || reservation.reservationId,
-              client: reservation.client_name || reservation.clientName,
-              checkIn: reservation.check_in_date || reservation.checkInDate,
-              checkOut: reservation.check_out_date || reservation.checkOutDate,
-              status: reservation.status,
-              operator: reservation.operator_id || reservation.operatorId,
-              origin: reservation.origin
-            });
-          });
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          signal: controller.signal
         });
-      }
-      
-      if (pageData.status === 'success' && pageData.data) {
-        // Contar reservas en esta página
-        const reservationsInPage = pageData.data.reduce((sum, group) => sum + group.length, 0);
-        console.log('Reservations in this page:', reservationsInPage);
-        
-        // Agregar los datos de esta página
-        allReservationsData.push(...pageData.data);
-        
-        // Usar el itemCount del meta de la primera página como total real
-        if (pageCount === 0) {
-          totalItemCount = pageData.meta?.itemCount || 0;
-          console.log('Total items available (from first page):', totalItemCount);
-        }
-        
-        // Verificar si hay más páginas según la documentación
-        hasNextPage = pageData.meta?.hasNextPage || false;
-        cursor = pageData.meta?.cursor;
-        
-        console.log('Has next page:', hasNextPage);
-        if (hasNextPage) {
-          console.log('Next cursor:', cursor);
-        }
-      } else {
-        console.error('API returned non-success status or no data:', pageData.status);
-        hasNextPage = false;
-      }
 
-      pageCount++;
-      
-      // Seguridad: evitar bucles infinitos
-      if (pageCount > 100) {
-        console.warn('Maximum page limit reached (100), stopping pagination');
-        break;
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            this.clearToken();
+            throw new Error('Token expired. Please authenticate again.');
+          }
+          throw new Error(`Failed to fetch reservations: ${response.statusText}`);
+        }
+
+        const pageData: AviratoReservationsResponse = await response.json();
+
+        if (pageData.status === 'success' && pageData.data) {
+          allReservationsData.push(...pageData.data);
+          hasNextPage = pageData.meta?.hasNextPage || false;
+          cursor = pageData.meta?.cursor;
+          console.log(`Page ${pageCount + 1} fetched: ${pageData.data.flat().length} reservations`);
+        } else {
+          hasNextPage = false;
+        }
+
+        pageCount++;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.error('Request timed out after 60 seconds');
+          throw new Error('La petición tardó demasiado. Intenta con un rango de fechas más pequeño.');
+        }
+        throw error;
       }
     }
 
-    console.log(`=== PAGINATION COMPLETE ===`);
-    console.log(`Total pages fetched: ${pageCount}`);
-    console.log(`Total reservation groups collected: ${allReservationsData.length}`);
-    const totalReservations = allReservationsData.reduce((sum, group) => sum + group.length, 0);
-    console.log(`Total individual reservations: ${totalReservations}`);
-    console.log(`COMPARACIÓN: Esperadas 14 reservas, encontradas ${totalReservations} reservas`);
-    console.log(`DISCREPANCIA: ${totalReservations !== 14 ? 'SÍ - Investigar parámetros' : 'NO - OK'}`);
-    
-    if (totalReservations !== 14) {
-      console.log('=== ANÁLISIS DE DISCREPANCIA ===');
-      console.log('Posibles causas:');
-      console.log('1. Filtro de status demasiado restrictivo');
-      console.log('2. Problema con el rango de fechas');
-      console.log('3. Web code incorrecto');
-      console.log('4. Date type incorrecto');
-      console.log('5. Reservas en diferentes estados no incluidos');
-    }
+    const allReservations = allReservationsData.flat();
+    console.log(`Total reservations fetched: ${allReservations.length}`);
 
-    // Crear el objeto de respuesta consolidado según la documentación
     const consolidatedResponse: AviratoReservationsResponse = {
       status: 'success',
-      data: allReservationsData,
+      data: [allReservations],
       meta: {
         take: 100,
-        itemCount: totalItemCount, // Usar el total real de la API
-        itemRemaining: 0, // Ya hemos obtenido todo
-        hasNextPage: false, // Ya no hay más páginas
-        cursor: '' // No necesario para el resultado final
+        itemCount: allReservations.length,
+        itemRemaining: 0,
+        hasNextPage: false,
+        cursor: ''
       }
     };
 
-    // Enriquecer reservas con datos de facturación y regímenes
+    // Enrichment with space types (villa categories) and basic data
     if (consolidatedResponse.status === 'success') {
       const allReservations = consolidatedResponse.data.flat();
-      console.log('=== ENRICHING RESERVATIONS ===');
-      console.log('Total reservations to enrich:', allReservations.length);
-      
-      // TEMPORALMENTE DESHABILITADO - Obtener regímenes una sola vez (opcional, si falla continúa sin nombres)
-      let regimeMap = new Map<string, string>();
-      console.log('SKIPPING regime fetch to avoid 403 errors');
-      /*
-      try {
-        const regimes = await this.getRegimes(webCode);
-        regimeMap = new Map(regimes.map(r => [r.regime_id, r.name]));
-        console.log('Regimes loaded:', regimeMap.size);
-      } catch (error) {
-        console.warn('Could not fetch regimes, will use regime codes instead:', error);
-      }
-      */
-      
-      // Mapeo manual de operadores específicos del establecimiento
+      console.log('Enriching reservations with basic data and space type names');
+
       const operatorMap = new Map<number, string>([
-        [-1, "Motor de reservas"], // Cliente Hotel/Web directo
+        [-1, "Motor de reservas"],
         [0, "Todos los operadores"],
         [1, "Channel Manager Booking.com"],
         [28, "Channel Manager Google"],
         [1003, "Travelzoo"]
       ]);
-      
-      // Intentar obtener operadores de la API como fallback
+
+      // Fetch space subtypes (villa typologies: VILLA PREMIUM, VILLA PREMIUM DELUXE, etc.)
+      // The structure is: space_types[] -> space_subtypes[] -> space_subtype_name
+      let spaceSubtypeMap = new Map<number, string>();
       try {
-        const operators = await this.getOperators(webCode);
-        console.log('Operators loaded from API:', operators.length);
-        
-        // Agregar operadores de la API al mapeo (sin sobrescribir los específicos)
-        operators.forEach(op => {
-          if (!operatorMap.has(op.id)) {
-            operatorMap.set(op.id, op.name);
+        const spaceTypesResponse = await this.getSpaceTypes(webCode);
+        console.log('=== SPACE TYPES RESPONSE RECEIVED ===');
+        console.log('Status:', spaceTypesResponse.status);
+        console.log('Total space types:', spaceTypesResponse.data?.length || 0);
+
+        if (spaceTypesResponse.status === 'success' && spaceTypesResponse.data) {
+          // Iterate through space types
+          for (const spaceType of spaceTypesResponse.data) {
+            console.log(`Processing space_type: ${spaceType.name} (ID: ${spaceType.space_type_id})`);
+
+            // Iterate through space subtypes (these are the villa typologies)
+            if (spaceType.space_subtypes) {
+              for (const subtype of spaceType.space_subtypes) {
+                spaceSubtypeMap.set(subtype.space_subtype_id, subtype.space_subtype_name);
+                console.log(`  Subtype mapping: ID ${subtype.space_subtype_id} -> "${subtype.space_subtype_name}"`);
+              }
+            }
           }
-        });
-        console.log('Total operators available:', operatorMap.size);
+
+          console.log('=== SPACE SUBTYPE MAP CREATED ===');
+          console.log('Map size:', spaceSubtypeMap.size);
+          console.log('All mappings:', Array.from(spaceSubtypeMap.entries()));
+        }
       } catch (error) {
-        console.warn('Could not fetch operators, will use operator IDs instead:', error);
+        console.error('ERROR fetching space types:', error);
       }
-      
-      // Obtener datos de facturación para cada reserva
+
+      // Fetch extras catalog
+      let extrasMap = new Map<number, string>();
+      try {
+        const extras = await this.getExtras(webCode);
+        console.log('=== EXTRAS CATALOG ===');
+        console.log('Total extras available:', extras.length);
+        for (const extra of extras) {
+          extrasMap.set(extra.extra_id, extra.name);
+          console.log(`Extra ID ${extra.extra_id}: "${extra.name}"`);
+        }
+      } catch (error) {
+        console.warn('Could not fetch extras catalog:', error);
+      }
+
       console.log('=== PROCESSING RESERVATIONS ===');
-      const uniqueOperatorIds = [...new Set(allReservations.map(r => r.operator_id || r.operatorId))];
-      console.log('Unique operator IDs found in reservations:', uniqueOperatorIds);
-      
       for (const reservation of allReservations) {
-        // Agregar nombre del régimen
-        reservation.regime_name = regimeMap.get(reservation.regime) || reservation.regime;
-        
-        // Agregar nombre del operador/canal
+        reservation.regime_name = reservation.regime;
+
         const operatorId = reservation.operator_id || reservation.operatorId;
         reservation.operator_name = operatorMap.get(operatorId) || `Operador ${operatorId}`;
-        
-        // TEMPORALMENTE DESHABILITADO - Obtener datos de facturación
-        console.log('SKIPPING billing fetch to avoid 404 errors');
-        /*
-        try {
-          const reservationId = reservation.reservation_id || reservation.reservationId;
-          const billingData = await this.getBillingForReservation(reservationId, webCode);
-          if (billingData && billingData.length > 0) {
-            // Sumar todos los totales de las facturas de esta reserva
-            const totalBilling = billingData.reduce((sum, bill) => sum + bill.total, 0);
-            reservation.billing_total = totalBilling;
-            reservation.is_fully_paid = totalBilling === 0;
-          } else {
-            reservation.billing_total = 0;
-            reservation.is_fully_paid = true;
+
+        // Add space subtype name (villa typology) based on space_subtype_id
+        const spaceSubtypeId = reservation.space_subtype_id || reservation.spaceSubtypeId;
+        const mappedName = spaceSubtypeMap.get(spaceSubtypeId);
+        reservation.space_type_name = mappedName || `Tipo ${spaceSubtypeId}`;
+
+        // Process extras from charges and predefinedCharges
+        const extrasFound: string[] = [];
+
+        // Check charges array
+        if (reservation.charges && Array.isArray(reservation.charges)) {
+          for (const charge of reservation.charges) {
+            if (charge.extra_id && extrasMap.has(charge.extra_id)) {
+              const extraName = extrasMap.get(charge.extra_id);
+              const quantity = charge.quantity || 1;
+              if (extraName) {
+                const formatted = quantity > 1 ? `${extraName} (x${quantity})` : extraName;
+                extrasFound.push(formatted);
+              }
+            }
           }
-        } catch (error) {
-          console.warn(`Could not fetch billing for reservation ${reservation.reservation_id}:`, error);
-          // Si no se puede obtener la facturación, usar valores por defecto
-          reservation.billing_total = 0;
-          reservation.is_fully_paid = true;
         }
-        */
-        
-        // Usar valores por defecto sin hacer llamadas a la API
+
+        // Check predefinedCharges array
+        if (reservation.predefinedCharges && Array.isArray(reservation.predefinedCharges)) {
+          for (const charge of reservation.predefinedCharges) {
+            if (charge.extra_id && extrasMap.has(charge.extra_id)) {
+              const extraName = extrasMap.get(charge.extra_id);
+              const quantity = charge.quantity || 1;
+              if (extraName) {
+                const formatted = quantity > 1 ? `${extraName} (x${quantity})` : extraName;
+                // Avoid duplicates
+                if (!extrasFound.includes(formatted)) {
+                  extrasFound.push(formatted);
+                }
+              }
+            }
+          }
+        }
+
+        reservation.extras_text = extrasFound.length > 0
+          ? extrasFound.join(', ')
+          : 'No tiene extras contratados';
+
         reservation.billing_total = 0;
         reservation.is_fully_paid = true;
       }
-      
-      console.log('=== ENRICHMENT COMPLETE ===');
+
+      console.log(`Processed ${allReservations.length} reservations with extras information`);
     }
 
     return consolidatedResponse;
   }
+
 
   async getBillingForReservation(reservationId: number, webCode: number): Promise<AviratoBillingData[]> {
     if (!this.isAuthenticated()) {
@@ -542,7 +549,7 @@ export class AviratoService {
     });
 
     const url = `${API_BASE_URL}/v3/channel-manager/operators?${params}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -558,6 +565,106 @@ export class AviratoService {
 
     const operatorsResponse: AviratoOperatorsResponse = await response.json();
     return operatorsResponse.status === 'success' ? operatorsResponse.data : [];
+  }
+
+  async getExtras(webCode: number): Promise<AviratoExtra[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/extra?${params}`;
+    console.log('=== FETCHING EXTRAS CATALOG ===');
+    console.log('URL:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch extras: ${response.statusText}`);
+      return [];
+    }
+
+    const extrasResponse: AviratoExtrasResponse = await response.json();
+    console.log('Extras fetched:', extrasResponse.data?.length || 0);
+    return extrasResponse.status === 'success' ? extrasResponse.data : [];
+  }
+
+  async getReservationExtras(reservationId: number, webCode: number): Promise<AviratoReservationExtra[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+      reservation_id: reservationId.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/extra?${params}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      console.warn(`Failed to fetch extras for reservation ${reservationId}`);
+      return [];
+    }
+
+    const extrasResponse: AviratoReservationExtrasResponse = await response.json();
+    return extrasResponse.status === 'success' ? extrasResponse.data : [];
+  }
+
+  async getSpaceTypes(webCode: number): Promise<AviratoSpaceTypesResponse> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated. Please authenticate first.');
+    }
+
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+    });
+
+    // Correct endpoint is /v3/space
+    const url = `${API_BASE_URL}/v3/space?${params}`;
+    console.log('=== FETCHING SPACES (with subtypes) ===');
+    console.log('URL:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Failed to fetch spaces: ${response.statusText}`, errorText);
+      return { status: 'error', data: [] };
+    }
+
+    const spaceTypesResponse: AviratoSpaceTypesResponse = await response.json();
+    console.log('Raw API response received successfully');
+    console.log('Number of space types:', spaceTypesResponse.data?.length || 0);
+    return spaceTypesResponse;
   }
 
   isAuthenticated(): boolean {
