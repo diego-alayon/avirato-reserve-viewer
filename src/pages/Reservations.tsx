@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Calendar } from '@/components/ui/calendar';
@@ -10,11 +9,11 @@ import {
   RefreshCw,
   LogOut,
   Calendar as CalendarIcon,
-  TrendingUp,
-  Users,
-  CreditCard,
-  Hotel,
-  Search
+  Search,
+  Home,
+  CheckCircle,
+  XCircle,
+  Package
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
@@ -60,27 +59,28 @@ const Reservations = () => {
 
   const handleFetchReservations = () => {
     if (dateRange.from && dateRange.to) {
-      // Expandir el rango para obtener todas las reservas que puedan estar activas
-      // Por ejemplo, si seleccionas 9 de noviembre, necesitamos buscar desde antes
-      // para capturar reservas que empezaron antes pero están activas
       const expandedStart = new Date(dateRange.from);
-      expandedStart.setDate(expandedStart.getDate() - 60); // 60 días antes
+      expandedStart.setDate(expandedStart.getDate() - 60);
 
       const expandedEnd = new Date(dateRange.to);
-      expandedEnd.setDate(expandedEnd.getDate() + 60); // 60 días después
+      expandedEnd.setDate(expandedEnd.getDate() + 60);
 
       fetchReservations(expandedStart, expandedEnd);
     } else {
-      // Si no hay fechas seleccionadas, usar valores por defecto (últimos 30 días)
       const defaultEnd = new Date();
       const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       fetchReservations(defaultStart, defaultEnd);
     }
   };
 
-  // Filtrar reservas por término de búsqueda y rango de fechas
+  // Helper function to truncate text and add tooltip
+  const truncateText = (text: string, maxLength: number = 60) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength);
+  };
+
   const filteredReservations = reservations.filter(reservation => {
-    // Aplicar filtro de búsqueda
     if (searchTerm?.trim()) {
       const clientName = reservation.client?.name && reservation.client?.surname
         ? `${reservation.client.name} ${reservation.client.surname}`
@@ -100,7 +100,6 @@ const Reservations = () => {
       if (!matchesSearch) return false;
     }
 
-    // Aplicar filtro de fechas si hay rango seleccionado
     if (dateRange.from && dateRange.to) {
       const rangeStart = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
       const rangeEnd = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
@@ -108,7 +107,6 @@ const Reservations = () => {
       const checkInStr = reservation.check_in_date || reservation.checkInDate;
       const checkOutStr = reservation.check_out_date || reservation.checkOutDate;
 
-      // Parse dates
       const checkInDateStr = checkInStr.split(' ')[0];
       const checkOutDateStr = checkOutStr.split(' ')[0];
 
@@ -118,14 +116,8 @@ const Reservations = () => {
       const [oyear, omonth, oday] = checkOutDateStr.split('-').map(Number);
       const checkOutDate = new Date(oyear, omonth - 1, oday);
 
-      // Mostrar si:
-      // 1. Check-in está en el rango
       const checkInInRange = checkInDate >= rangeStart && checkInDate <= rangeEnd;
-
-      // 2. Check-out está en el rango
       const checkOutInRange = checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
-
-      // 3. Está activa durante el rango (check-in antes, check-out después)
       const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
 
       return checkInInRange || checkOutInRange || isActive;
@@ -134,331 +126,282 @@ const Reservations = () => {
     return true;
   });
 
-
-  const totalReservations = filteredReservations.length;
-  const totalRevenue = filteredReservations.reduce((sum, res) => sum + (res.price || 0), 0);
-  const confirmedReservations = filteredReservations.filter(res => {
-    const status = (res.status || '').toString().toLowerCase();
-    return status.includes('confirmada') || status.includes('confirmed');
-  }).length;
-
-  const stats = [
-    {
-      title: "Total Reservas",
-      value: totalReservations,
-      icon: CalendarIcon,
-      color: "text-primary"
-    },
-    {
-      title: "Confirmadas",
-      value: confirmedReservations,
-      icon: TrendingUp,
-      color: "text-success"
-    },
-    {
-      title: "Huéspedes",
-      value: filteredReservations.reduce((sum, res) => sum + (res.adults || 0) + (res.children || 0), 0),
-      icon: Users,
-      color: "text-blue-600"
-    },
-    {
-      title: "Ingresos Totales",
-      value: `€${totalRevenue.toLocaleString()}`,
-      icon: CreditCard,
-      color: "text-green-600"
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary-glow/5">
-      {/* Header */}
-      <div className="bg-card border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-primary rounded-full p-2 shadow-glow">
-                <Hotel className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Avirato Dashboard
-                </h1>
-                <p className="text-muted-foreground">
-                  Gestión de reservas hoteleras
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Date Range Picker */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "justify-start text-left font-normal w-[280px]",
-                      !dateRange?.from && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
-                          {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
-                        </>
-                      ) : (
-                        format(dateRange.from, "dd/MM/yyyy", { locale: es })
-                      )
-                    ) : (
-                      <span>Seleccionar rango de fechas</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={tempDateRange?.from || new Date()}
-                    selected={tempDateRange}
-                    onSelect={handleDateRangeChange}
-                    numberOfMonths={2}
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                  <div className="flex justify-between gap-2 p-3 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearDateRange}
-                    >
-                      Limpiar
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleAcceptDateRange}
-                      disabled={!tempDateRange?.from || !tempDateRange?.to}
-                    >
-                      Aceptar
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              <Button 
-                onClick={handleFetchReservations}
-                disabled={isLoading}
-                variant="gradient"
-                size="sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                {isLoading ? 'Cargando...' : 'Buscar Reservas'}
-              </Button>
-              <Button 
-                onClick={handleLogout}
+    <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
+      <div className="flex items-center justify-between space-y-2">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Avirato Dashboard</h2>
+          <p className="text-muted-foreground">
+            Gestión de reservas hoteleras
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
                 variant="outline"
                 size="sm"
+                className={cn(
+                  "justify-start text-left font-normal w-[280px]",
+                  !dateRange?.from && "text-muted-foreground"
+                )}
               >
-                <LogOut className="h-4 w-4" />
-                Cerrar Sesión
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "dd/MM/yyyy", { locale: es })} -{" "}
+                      {format(dateRange.to, "dd/MM/yyyy", { locale: es })}
+                    </>
+                  ) : (
+                    format(dateRange.from, "dd/MM/yyyy", { locale: es })
+                  )
+                ) : (
+                  <span>Seleccionar rango de fechas</span>
+                )}
               </Button>
-            </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={tempDateRange?.from || new Date()}
+                selected={tempDateRange}
+                onSelect={handleDateRangeChange}
+                numberOfMonths={2}
+                className={cn("p-3 pointer-events-auto")}
+              />
+              <div className="flex justify-between gap-2 p-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearDateRange}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleAcceptDateRange}
+                  disabled={!tempDateRange?.from || !tempDateRange?.to}
+                >
+                  Aceptar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            onClick={handleFetchReservations}
+            disabled={isLoading}
+            size="sm"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Cargando...' : 'Buscar Reservas'}
+          </Button>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex flex-1 items-center space-x-2">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre de cliente o ID de reserva..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="shadow-elegant hover:shadow-glow transition-shadow duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold text-foreground">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <div className="rounded-md border">
+        {filteredReservations.length === 0 && reservations.length > 0 ? (
+          <div className="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed">
+            <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
+              <Search className="h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No se encontraron reservas</h3>
+              <p className="mb-4 mt-2 text-sm text-muted-foreground">
+                No hay reservas que coincidan con "{searchTerm}"
+              </p>
+              <Button
+                onClick={() => setSearchTerm('')}
+                variant="outline"
+                size="sm"
+              >
+                Limpiar búsqueda
+              </Button>
+            </div>
+          </div>
+        ) : filteredReservations.length === 0 ? (
+          <div className="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed">
+            <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center">
+              <CalendarIcon className="h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No hay reservas cargadas</h3>
+              <p className="mb-4 mt-2 text-sm text-muted-foreground">
+                Selecciona un rango de fechas y haz clic en "Buscar Reservas"
+              </p>
+              <Button
+                onClick={handleFetchReservations}
+                disabled={isLoading}
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Buscar Reservas
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID Reserva</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Teléfono</TableHead>
+                <TableHead>Canal</TableHead>
+                <TableHead>Tipo de Villa</TableHead>
+                <TableHead>Check-in</TableHead>
+                <TableHead>Check-out</TableHead>
+                <TableHead>Régimen</TableHead>
+                <TableHead>Huéspedes</TableHead>
+                <TableHead>Precio</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Estado de Pago</TableHead>
+                <TableHead>Importe Pendiente</TableHead>
+                <TableHead>Extras</TableHead>
+                <TableHead>Observaciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredReservations.map((reservation) => {
+                const clientName = reservation.client?.name && reservation.client?.surname
+                  ? `${reservation.client.name} ${reservation.client.surname}`
+                  : reservation.client_name || reservation.client_id || "No disponible";
+                const operatorName = reservation.operator_name || "No disponible";
+                const villaType = reservation.space_type_name || "No disponible";
+                const status = reservation.status.replace('Reserva confirmada', 'Confirmada');
+                const paymentStatus = reservation.is_fully_paid !== undefined
+                  ? (reservation.is_fully_paid ? 'Pagado' : 'Pago Pendiente')
+                  : (reservation.is_paid ? 'Pagado' : 'Pendiente');
+                const extras = reservation.extras_text || 'No tiene extras contratados';
+                const observations = reservation.client?.observations || reservation.observations || "Sin observaciones";
+                const guestsText = `${reservation.adults} adultos${reservation.children > 0 ? `, ${reservation.children} niños` : ''}`;
 
-        {/* Reservations Section */}
-        <Card className="shadow-elegant">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-bold">
-                  Reservas {searchTerm && `(${totalReservations} de ${reservations.length})`}
-                </CardTitle>
-                <CardDescription>
-                  {searchTerm ? `Mostrando resultados para "${searchTerm}"` : 'Lista completa de reservas de Avirato'}
-                </CardDescription>
-              </div>
-              <Badge variant="secondary" className="text-sm">
-                {totalReservations} {searchTerm ? 'encontradas' : 'reservas'}
-              </Badge>
-            </div>
-            
-            {/* Buscador */}
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre de cliente o ID de reserva..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredReservations.length === 0 && reservations.length > 0 ? (
-              <div className="text-center py-12">
-                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  No se encontraron reservas
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  No hay reservas que coincidan con "{searchTerm}"
-                </p>
-                <Button 
-                  onClick={() => setSearchTerm('')}
-                  variant="outline"
-                >
-                  Limpiar búsqueda
-                </Button>
-              </div>
-            ) : filteredReservations.length === 0 ? (
-              <div className="text-center py-12">
-                <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  No hay reservas cargadas
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Selecciona un rango de fechas y haz clic en "Buscar Reservas"
-                </p>
-                <Button 
-                  onClick={handleFetchReservations}
-                  disabled={isLoading}
-                  variant="hero"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  Buscar Reservas
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="h-10 px-2">ID Reserva</TableHead>
-                    <TableHead className="h-10 px-2">Cliente</TableHead>
-                    <TableHead className="h-10 px-2">Teléfono</TableHead>
-                    <TableHead className="h-10 px-2">Canal</TableHead>
-                    <TableHead className="h-10 px-2">Tipo de Villa</TableHead>
-                    <TableHead className="h-10 px-2">Check-in</TableHead>
-                    <TableHead className="h-10 px-2">Check-out</TableHead>
-                    <TableHead className="h-10 px-2">Régimen</TableHead>
-                    <TableHead className="h-10 px-2">Huéspedes</TableHead>
-                    <TableHead className="h-10 px-2">Precio</TableHead>
-                    <TableHead className="h-10 px-2">Estado</TableHead>
-                    <TableHead className="h-10 px-2">Estado de Pago</TableHead>
-                    <TableHead className="h-10 px-2">Importe Pendiente</TableHead>
-                    <TableHead className="h-10 px-2">Extras</TableHead>
-                    <TableHead className="h-10 px-2">Observaciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.reservation_id || reservation.reservationId} className="h-12 px-0">
-                      <TableCell className="font-medium py-2 px-2">
-                        {reservation.reservation_id || reservation.reservationId}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        {reservation.client?.name && reservation.client?.surname 
-                          ? `${reservation.client.name} ${reservation.client.surname}`
-                          : reservation.client_name || reservation.client_id || "No disponible"
-                        }
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        {reservation.client?.phone || "No disponible"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        <Badge variant="outline">
-                          {reservation.operator_name || "No disponible"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        <Badge variant="secondary">
-                          {reservation.space_type_name || "No disponible"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
+                return (
+                  <TableRow key={reservation.reservation_id || reservation.reservationId}>
+                    <TableCell className="font-medium" title={`${reservation.reservation_id || reservation.reservationId}`}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(`${reservation.reservation_id || reservation.reservationId}`)}
+                      </span>
+                    </TableCell>
+                    <TableCell title={clientName}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(clientName)}
+                      </span>
+                    </TableCell>
+                    <TableCell title={reservation.client?.phone || "No disponible"}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(reservation.client?.phone || "No disponible")}
+                      </span>
+                    </TableCell>
+                    <TableCell title={operatorName}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(operatorName)}
+                      </span>
+                    </TableCell>
+                    <TableCell title={villaType}>
+                      <div className="flex items-center gap-2">
+                        <Home className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="truncate block max-w-[60ch]">
+                          {truncateText(villaType)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell title={safeDateFormatSimple(reservation.checkInDate || reservation.check_in_date)}>
+                      <span className="truncate block max-w-[60ch]">
                         {safeDateFormatSimple(reservation.checkInDate || reservation.check_in_date)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
+                      </span>
+                    </TableCell>
+                    <TableCell title={safeDateFormatSimple(reservation.checkOutDate || reservation.check_out_date)}>
+                      <span className="truncate block max-w-[60ch]">
                         {safeDateFormatSimple(reservation.checkOutDate || reservation.check_out_date)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        {reservation.regime_name || reservation.regime}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap py-2 px-2">
-                        {reservation.adults} adultos
-                        {reservation.children > 0 && `, ${reservation.children} niños`}
-                      </TableCell>
-                      <TableCell className="font-semibold py-2 px-2">
+                      </span>
+                    </TableCell>
+                    <TableCell title={reservation.regime_name || reservation.regime}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(reservation.regime_name || reservation.regime)}
+                      </span>
+                    </TableCell>
+                    <TableCell title={guestsText}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(guestsText)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-semibold" title={`€${reservation.price}`}>
+                      <span className="truncate block max-w-[60ch]">
                         €{reservation.price}
-                      </TableCell>
-                      <TableCell className="py-2 px-2">
-                        <Badge 
-                          variant={
-                            reservation.status.toLowerCase().includes('confirmada') 
-                              ? 'confirmada' 
-                              : 'secondary'
-                          }
-                        >
-                          {reservation.status.replace('Reserva confirmada', 'Confirmada')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2 px-2">
-                        <Badge 
-                          variant={reservation.is_fully_paid !== undefined 
-                            ? (reservation.is_fully_paid ? 'pagado' : 'destructive')
-                            : (reservation.is_paid ? 'pagado' : 'destructive')
-                          }
-                        >
-                          {reservation.is_fully_paid !== undefined 
-                            ? (reservation.is_fully_paid ? 'Pagado' : 'Pago Pendiente')
-                            : (reservation.is_paid ? 'Pagado' : 'Pendiente')
-                          }
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-semibold py-2 px-2">
+                      </span>
+                    </TableCell>
+                    <TableCell title={status}>
+                      <div className="flex items-center gap-2">
+                        {reservation.status.toLowerCase().includes('confirmada') ? (
+                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className="truncate block max-w-[60ch]">
+                          {truncateText(status)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell title={paymentStatus}>
+                      <div className="flex items-center gap-2">
+                        {(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid) ? (
+                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                        )}
+                        <span className="truncate block max-w-[60ch]">
+                          {truncateText(paymentStatus)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-semibold" title={reservation.billing_total !== undefined ? `€${reservation.billing_total.toFixed(2)}` : '€0.00'}>
+                      <span className="truncate block max-w-[60ch]">
                         {reservation.billing_total !== undefined
                           ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
                           : '€0.00'
                         }
-                      </TableCell>
-                      <TableCell className="py-2 px-2">
-                        <span className={reservation.extras_text === 'No tiene extras contratados' ? 'text-muted-foreground text-sm' : 'text-sm'}>
-                          {reservation.extras_text || 'No tiene extras contratados'}
+                      </span>
+                    </TableCell>
+                    <TableCell title={extras}>
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className={`truncate block max-w-[60ch] ${extras === 'No tiene extras contratados' ? 'text-muted-foreground' : ''}`}>
+                          {truncateText(extras)}
                         </span>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate whitespace-nowrap py-2 px-2">
-                        {reservation.client?.observations || reservation.observations || "Sin observaciones"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                      </div>
+                    </TableCell>
+                    <TableCell title={observations}>
+                      <span className="truncate block max-w-[60ch]">
+                        {truncateText(observations)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );
