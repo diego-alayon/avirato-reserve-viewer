@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Mail, Users, CreditCard } from 'lucide-react';
 import { type AviratoReservation } from '@/services/avirato';
+import { safeDateFormat } from '@/utils/dateHelpers';
 
 interface ReservationCardProps {
   reservation: AviratoReservation;
@@ -24,19 +25,8 @@ const getStatusColor = (status: string) => {
 };
 
 export const ReservationCard = ({ reservation }: ReservationCardProps) => {
-  const checkInDate = new Date(reservation.check_in_date).toLocaleDateString('es-ES', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-  
-  const checkOutDate = new Date(reservation.check_out_date).toLocaleDateString('es-ES', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
+  const checkInDate = safeDateFormat(reservation.check_in_date);
+  const checkOutDate = safeDateFormat(reservation.check_out_date);
 
   return (
     <Card className="hover:shadow-elegant transition-shadow duration-200">
