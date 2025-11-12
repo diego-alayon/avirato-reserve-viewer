@@ -296,8 +296,14 @@ const Reservations = () => {
                 const observations = reservation.client?.observations || reservation.observations || "Sin observaciones";
                 const guestsText = `${reservation.adults} adultos${reservation.children > 0 ? `, ${reservation.children} niños` : ''}`;
 
+                // Determinar si tiene pago pendiente
+                const hasPaymentPending = !(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid);
+
                 return (
-                  <TableRow key={reservation.reservation_id || reservation.reservationId}>
+                  <TableRow
+                    key={reservation.reservation_id || reservation.reservationId}
+                    className={hasPaymentPending ? 'bg-yellow-500/10' : ''}
+                  >
                     <TableCell className="font-medium" title={`${reservation.reservation_id || reservation.reservationId}`}>
                       <span className="truncate block max-w-[60ch]">
                         {truncateText(`${reservation.reservation_id || reservation.reservationId}`)}
