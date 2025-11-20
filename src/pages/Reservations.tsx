@@ -324,6 +324,7 @@ const Reservations = () => {
                 <TableHead className="text-black font-bold whitespace-nowrap">Teléfono</TableHead>
                 <TableHead className="text-black font-bold whitespace-nowrap">Canal</TableHead>
                 <TableHead className="text-black font-bold whitespace-nowrap">Tipo de Villa</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Número de Villa</TableHead>
                 <TableHead className="text-black font-bold whitespace-nowrap">Check-in</TableHead>
                 <TableHead className="text-black font-bold whitespace-nowrap">Check-out</TableHead>
                 <TableHead className="text-black font-bold whitespace-nowrap">Régimen</TableHead>
@@ -390,6 +391,11 @@ const Reservations = () => {
                           {truncateText(villaType)}
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell title={reservation.space_name || 'No disponible'}>
+                      <span className="truncate block max-w-[60ch]">
+                        {reservation.space_name || 'No disponible'}
+                      </span>
                     </TableCell>
                     <TableCell title={safeDateFormatSimple(reservation.checkInDate || reservation.check_in_date)}>
                       <span className="truncate block max-w-[60ch]">

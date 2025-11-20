@@ -117,6 +117,8 @@ export interface AviratoReservation {
   operator_name?: string;
   // Campo para el nombre del tipo de espacio/villa (tipología)
   space_type_name?: string;
+  // Campo para el número/nombre de la villa específica
+  space_name?: string;
   // Campo para los extras contratados (texto formateado)
   extras_text?: string;
   // Campos para información de pagos
@@ -404,8 +406,10 @@ export class AviratoService {
       ]);
 
       // Fetch space subtypes (villa typologies: VILLA PREMIUM, VILLA PREMIUM DELUXE, etc.)
-      // The structure is: space_types[] -> space_subtypes[] -> space_subtype_name
+      // Also fetch space names (individual villas: Villa 101, Villa 102, etc.)
+      // The structure is: space_types[] -> space_subtypes[] -> spaces[] -> space_name
       let spaceSubtypeMap = new Map<number, string>();
+      let spaceNameMap = new Map<number, string>();
       try {
         const spaceTypesResponse = await this.getSpaceTypes(webCode);
         console.log('=== SPACE TYPES RESPONSE RECEIVED ===');
@@ -422,13 +426,24 @@ export class AviratoService {
               for (const subtype of spaceType.space_subtypes) {
                 spaceSubtypeMap.set(subtype.space_subtype_id, subtype.space_subtype_name);
                 console.log(`  Subtype mapping: ID ${subtype.space_subtype_id} -> "${subtype.space_subtype_name}"`);
+
+                // Iterate through spaces (individual villas)
+                if (subtype.spaces) {
+                  for (const space of subtype.spaces) {
+                    spaceNameMap.set(space.space_id, space.space_name);
+                    console.log(`    Space mapping: ID ${space.space_id} -> "${space.space_name}"`);
+                  }
+                }
               }
             }
           }
 
           console.log('=== SPACE SUBTYPE MAP CREATED ===');
           console.log('Map size:', spaceSubtypeMap.size);
-          console.log('All mappings:', Array.from(spaceSubtypeMap.entries()));
+          console.log('All subtype mappings:', Array.from(spaceSubtypeMap.entries()));
+          console.log('=== SPACE NAME MAP CREATED ===');
+          console.log('Map size:', spaceNameMap.size);
+          console.log('Sample space mappings:', Array.from(spaceNameMap.entries()).slice(0, 5));
         }
       } catch (error) {
         console.error('ERROR fetching space types:', error);
@@ -459,6 +474,11 @@ export class AviratoService {
         const spaceSubtypeId = reservation.space_subtype_id || reservation.spaceSubtypeId;
         const mappedName = spaceSubtypeMap.get(spaceSubtypeId);
         reservation.space_type_name = mappedName || `Tipo ${spaceSubtypeId}`;
+
+        // Add space name (individual villa number) based on space_id
+        const spaceId = reservation.space_id || reservation.spaceId;
+        const spaceName = spaceNameMap.get(spaceId);
+        reservation.space_name = spaceName || `Villa ${spaceId}`;
 
         // Process extras from charges (filter by type='extra')
         const extrasFound: string[] = [];
