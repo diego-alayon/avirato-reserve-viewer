@@ -124,6 +124,8 @@ export interface AviratoReservation {
   payment_date?: string; // Fecha del último pago
   payment_user?: string; // Usuario que realizó el pago
   payments?: AviratoPayment[]; // Array completo de pagos (opcional)
+  // Campo para el link de pago de la reserva
+  payment_link?: string; // URL de la tienda online para pagar
 }
 
 export interface AviratoReservationsResponse {
@@ -458,35 +460,53 @@ export class AviratoService {
         const mappedName = spaceSubtypeMap.get(spaceSubtypeId);
         reservation.space_type_name = mappedName || `Tipo ${spaceSubtypeId}`;
 
-        // Process extras from charges and predefinedCharges
+        // Process extras from charges (filter by type='extra')
         const extrasFound: string[] = [];
 
-        // Check charges array
+        // Check charges array and filter by type='extra'
         if (reservation.charges && Array.isArray(reservation.charges)) {
           for (const charge of reservation.charges) {
-            if (charge.extra_id && extrasMap.has(charge.extra_id)) {
-              const extraName = extrasMap.get(charge.extra_id);
+            // Filter charges where type === 'extra'
+            if (charge.type === 'extra' && charge.concept) {
+              const extraName = charge.concept;
               const quantity = charge.quantity || 1;
-              if (extraName) {
-                const formatted = quantity > 1 ? `${extraName} (x${quantity})` : extraName;
-                extrasFound.push(formatted);
+              const price = charge.price || charge.total || 0;
+
+              // Format: "Extra Name (x2) - €50.00"
+              let formatted = extraName;
+              if (quantity > 1) {
+                formatted += ` (x${quantity})`;
               }
+              if (price > 0) {
+                formatted += ` - €${price.toFixed(2)}`;
+              }
+
+              extrasFound.push(formatted);
             }
           }
         }
 
-        // Check predefinedCharges array
+        // Check predefinedCharges array and filter by type='extra'
         if (reservation.predefinedCharges && Array.isArray(reservation.predefinedCharges)) {
           for (const charge of reservation.predefinedCharges) {
-            if (charge.extra_id && extrasMap.has(charge.extra_id)) {
-              const extraName = extrasMap.get(charge.extra_id);
+            // Filter charges where type === 'extra'
+            if (charge.type === 'extra' && charge.concept) {
+              const extraName = charge.concept;
               const quantity = charge.quantity || 1;
-              if (extraName) {
-                const formatted = quantity > 1 ? `${extraName} (x${quantity})` : extraName;
-                // Avoid duplicates
-                if (!extrasFound.includes(formatted)) {
-                  extrasFound.push(formatted);
-                }
+              const price = charge.price || charge.total || 0;
+
+              // Format: "Extra Name (x2) - €50.00"
+              let formatted = extraName;
+              if (quantity > 1) {
+                formatted += ` (x${quantity})`;
+              }
+              if (price > 0) {
+                formatted += ` - €${price.toFixed(2)}`;
+              }
+
+              // Avoid duplicates
+              if (!extrasFound.includes(formatted)) {
+                extrasFound.push(formatted);
               }
             }
           }
@@ -525,8 +545,14 @@ export class AviratoService {
           const isPaidField = reservation.is_paid || reservation.isPaid || false;
 
           try {
-            // Get all payments for this reservation
-            const payments = await this.getPaymentsByReservation(reservationId, webCode);
+            // Get all payments for this reservation and payment link in parallel
+            const [payments, paymentLink] = await Promise.all([
+              this.getPaymentsByReservation(reservationId, webCode),
+              this.getPaymentLink(reservationId, webCode)
+            ]);
+
+            // Guardar el payment link
+            reservation.payment_link = paymentLink || '';
 
             // Log de debug para ver los datos recibidos
             if (payments.length > 0) {
@@ -703,6 +729,87 @@ export class AviratoService {
     } catch (error) {
       console.warn(`Failed to parse payments response for reservation ${reservationId}:`, error);
       return [];
+    }
+  }
+
+  async getPaymentLink(reservationId: number, webCode: number): Promise<string | null> {
+    if (!this.token) {
+      console.warn('Cannot fetch payment link: No authentication token available');
+      return null;
+    }
+
+    // No especificar type para obtener todas las URLs disponibles
+    const params = new URLSearchParams({
+      web_code: webCode.toString(),
+    });
+
+    const url = `${API_BASE_URL}/v3/reservation/urls/${reservationId}?${params}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`Payment link not found for reservation ${reservationId}`);
+          return null;
+        }
+        console.warn(`Failed to fetch payment link for reservation ${reservationId}: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = await response.json();
+
+      // Log completo de la respuesta para debugging
+      console.log(`🔍 Payment link response for reservation ${reservationId}:`, JSON.stringify(data, null, 2));
+
+      let paymentLink = null;
+
+      // Buscar el link de payments.avirato.com en todas las propiedades posibles
+      // La respuesta puede contener múltiples URLs: shop, autocheckin, guestLink, payment, etc.
+
+      // Función helper para buscar el link de pago en un objeto
+      const findPaymentLink = (obj: any): string | null => {
+        if (!obj || typeof obj !== 'object') return null;
+
+        // Buscar en todas las propiedades del objeto
+        for (const key in obj) {
+          const value = obj[key];
+
+          // Si es una string y contiene payments.avirato.com, es el link que buscamos
+          if (typeof value === 'string' && value.includes('payments.avirato.com')) {
+            return value;
+          }
+
+          // Si es un objeto, buscar recursivamente
+          if (typeof value === 'object' && value !== null) {
+            const found = findPaymentLink(value);
+            if (found) return found;
+          }
+        }
+
+        return null;
+      };
+
+      // Buscar el link de pago en la respuesta
+      paymentLink = findPaymentLink(data);
+
+      if (paymentLink) {
+        console.log(`✅ Payment link found for reservation ${reservationId}: ${paymentLink}`);
+        return paymentLink;
+      }
+
+      console.warn(`⚠️ Payment link (payments.avirato.com) not found in response for reservation ${reservationId}. Response structure:`, data);
+      return null;
+    } catch (error) {
+      console.error(`❌ Failed to fetch payment link for reservation ${reservationId}:`, error);
+      return null;
     }
   }
 

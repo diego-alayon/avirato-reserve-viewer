@@ -121,3 +121,15 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Estilos personalizados para las filas de la tabla */
+  table tbody tr {
+    height: 36px !important;
+  }
+
+  table tbody td {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+}

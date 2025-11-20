@@ -19,7 +19,12 @@ import {
   ArrowRightLeft,
   Globe,
   CircleDollarSign,
-  Clock
+  Clock,
+  MessageCircle,
+  Copy,
+  ExternalLink,
+  ShoppingBag,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
@@ -50,6 +55,26 @@ const getPaymentIcon = (paymentType: string) => {
 
   // Default icon for other payment types
   return <CircleDollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+};
+
+// Helper function to copy text to clipboard
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    // You could add a toast notification here
+    console.log('Link copiado al portapapeles');
+  } catch (err) {
+    console.error('Error al copiar al portapapeles:', err);
+  }
+};
+
+// Helper function to open WhatsApp with client phone
+const openWhatsApp = (phone: string, message: string = '') => {
+  // Clean phone number (remove spaces, dashes, etc.)
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+  // Format WhatsApp URL
+  const whatsappUrl = `https://wa.me/${cleanPhone}${message ? `?text=${encodeURIComponent(message)}` : ''}`;
+  window.open(whatsappUrl, '_blank');
 };
 
 const Reservations = () => {
@@ -294,24 +319,25 @@ const Reservations = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID Reserva</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Canal</TableHead>
-                <TableHead>Tipo de Villa</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
-                <TableHead>Régimen</TableHead>
-                <TableHead>Huéspedes</TableHead>
-                <TableHead>Precio</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Estado de Pago</TableHead>
-                <TableHead>Importe Pendiente</TableHead>
-                <TableHead>Tipo de Pago</TableHead>
-                <TableHead>Fecha de Pago</TableHead>
-                <TableHead>Usuario de Pago</TableHead>
-                <TableHead>Extras</TableHead>
-                <TableHead>Observaciones</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">ID Reserva</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Cliente</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Teléfono</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Canal</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Tipo de Villa</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Check-in</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Check-out</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Régimen</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Huéspedes</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Precio</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Estado</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Estado de Pago</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Importe Pendiente</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Tipo de Pago</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Fecha de Pago</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Usuario de Pago</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Link de Pago</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Extras</TableHead>
+                <TableHead className="text-black font-bold whitespace-nowrap">Observaciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -335,7 +361,7 @@ const Reservations = () => {
                 return (
                   <TableRow
                     key={reservation.reservation_id || reservation.reservationId}
-                    className={hasPaymentPending ? 'bg-yellow-500/10' : ''}
+                    className={`h-9 ${hasPaymentPending ? 'bg-yellow-500/10' : ''}`}
                   >
                     <TableCell className="font-medium" title={`${reservation.reservation_id || reservation.reservationId}`}>
                       <span className="truncate block max-w-[60ch]">
@@ -403,26 +429,22 @@ const Reservations = () => {
                       </div>
                     </TableCell>
                     <TableCell title={paymentStatus}>
-                      <div className="flex items-center gap-2">
-                        {(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid) ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
-                            <span className="truncate block max-w-[60ch]">
-                              {truncateText(paymentStatus)}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate block max-w-[60ch] text-muted-foreground animate-blink">
-                              Pendiente
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      {(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid) ? (
+                        <Badge
+                          className="bg-green-50 text-green-700 border-green-500 font-normal"
+                          style={{ borderRadius: '4px' }}
+                          variant="outline"
+                        >
+                          Pagado
+                        </Badge>
+                      ) : (
+                        <span className="text-red-600 font-normal animate-blink">
+                          Pendiente
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="font-semibold" title={reservation.billing_total !== undefined ? `€${reservation.billing_total.toFixed(2)}` : '€0.00'}>
-                      <span className="truncate block max-w-[60ch]">
+                      <span className={`truncate block max-w-[60ch] ${reservation.billing_total && reservation.billing_total > 0 ? 'text-red-600' : ''}`}>
                         {reservation.billing_total !== undefined
                           ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
                           : '€0.00'
@@ -464,12 +486,61 @@ const Reservations = () => {
                         }
                       </span>
                     </TableCell>
+                    <TableCell title={reservation.payment_link || 'No disponible'}>
+                      <div className="flex items-center gap-1">
+                        {reservation.payment_link ? (
+                          <>
+                            <button
+                              onClick={() => openWhatsApp(
+                                reservation.client?.phone || '',
+                                `Hola ${reservation.client?.name || ''}, aquí está tu link de pago: ${reservation.payment_link}`
+                              )}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              title="Enviar por WhatsApp"
+                              disabled={!reservation.client?.phone}
+                            >
+                              <MessageCircle className="h-3 w-3 text-green-600" />
+                            </button>
+                            <button
+                              onClick={() => copyToClipboard(reservation.payment_link || '')}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors"
+                              title="Copiar link"
+                            >
+                              <Copy className="h-3 w-3 text-gray-600" />
+                            </button>
+                            <a
+                              href={reservation.payment_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm truncate max-w-[200px]"
+                              title={reservation.payment_link}
+                            >
+                              <span className="truncate">Link de pago</span>
+                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                            </a>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-sm whitespace-nowrap">No disponible</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell title={extras}>
                       <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className={`truncate block max-w-[60ch] ${extras === 'No tiene extras contratados' ? 'text-muted-foreground' : ''}`}>
-                          {truncateText(extras)}
-                        </span>
+                        {extras === 'No tiene extras contratados' ? (
+                          <>
+                            <X className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                            <span className="truncate block max-w-[60ch] text-gray-300">
+                              {truncateText(extras)}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span className="truncate block max-w-[60ch]">
+                              {truncateText(extras)}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell title={observations}>
