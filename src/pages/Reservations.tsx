@@ -13,7 +13,13 @@ import {
   Home,
   CheckCircle,
   XCircle,
-  Package
+  Package,
+  CreditCard,
+  Banknote,
+  ArrowRightLeft,
+  Globe,
+  CircleDollarSign,
+  Clock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
@@ -21,6 +27,30 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+// Helper function to get payment type icon
+const getPaymentIcon = (paymentType: string) => {
+  const type = paymentType?.toUpperCase() || '';
+
+  if (type.includes('CARD') || type.includes('TARJETA')) {
+    return <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+  if (type.includes('CASH') || type.includes('EFECTIVO')) {
+    return <Banknote className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+  if (type.includes('TRANSFER') || type.includes('TRANSFERENCIA')) {
+    return <ArrowRightLeft className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+  if (type.includes('ONLINE') || type.includes('WEB')) {
+    return <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+  if (type === 'PENDIENTE' || type === 'PENDING') {
+    return <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+
+  // Default icon for other payment types
+  return <CircleDollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+};
 
 const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
@@ -277,6 +307,9 @@ const Reservations = () => {
                 <TableHead>Estado</TableHead>
                 <TableHead>Estado de Pago</TableHead>
                 <TableHead>Importe Pendiente</TableHead>
+                <TableHead>Tipo de Pago</TableHead>
+                <TableHead>Fecha de Pago</TableHead>
+                <TableHead>Usuario de Pago</TableHead>
                 <TableHead>Extras</TableHead>
                 <TableHead>Observaciones</TableHead>
               </TableRow>
@@ -372,13 +405,20 @@ const Reservations = () => {
                     <TableCell title={paymentStatus}>
                       <div className="flex items-center gap-2">
                         {(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid) ? (
-                          <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <span className="truncate block max-w-[60ch]">
+                              {truncateText(paymentStatus)}
+                            </span>
+                          </>
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                          <>
+                            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate block max-w-[60ch] text-muted-foreground animate-blink">
+                              Pendiente
+                            </span>
+                          </>
                         )}
-                        <span className="truncate block max-w-[60ch]">
-                          {truncateText(paymentStatus)}
-                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="font-semibold" title={reservation.billing_total !== undefined ? `€${reservation.billing_total.toFixed(2)}` : '€0.00'}>
@@ -386,6 +426,41 @@ const Reservations = () => {
                         {reservation.billing_total !== undefined
                           ? (reservation.billing_total > 0 ? `€${reservation.billing_total.toFixed(2)}` : '€0.00')
                           : '€0.00'
+                        }
+                      </span>
+                    </TableCell>
+                    <TableCell title={reservation.payment_method || 'Pendiente'}>
+                      <div className="flex items-center gap-2">
+                        {hasPaymentPending ? (
+                          <>
+                            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate block max-w-[60ch] text-muted-foreground">
+                              Pendiente
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {getPaymentIcon(reservation.payment_method || '')}
+                            <span className="truncate block max-w-[60ch]">
+                              {truncateText(reservation.payment_method || 'N/A')}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell title={reservation.payment_date || 'Pendiente'}>
+                      <span className={`truncate block max-w-[60ch] ${hasPaymentPending ? 'text-muted-foreground' : ''}`}>
+                        {hasPaymentPending
+                          ? 'Pendiente'
+                          : (reservation.payment_date ? safeDateFormatSimple(reservation.payment_date) : 'N/A')
+                        }
+                      </span>
+                    </TableCell>
+                    <TableCell title={reservation.payment_user || 'Pendiente'}>
+                      <span className={`truncate block max-w-[60ch] ${hasPaymentPending ? 'text-muted-foreground' : ''}`}>
+                        {hasPaymentPending
+                          ? 'Pendiente'
+                          : truncateText(reservation.payment_user || 'N/A')
                         }
                       </span>
                     </TableCell>

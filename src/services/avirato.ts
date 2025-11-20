@@ -119,6 +119,11 @@ export interface AviratoReservation {
   space_type_name?: string;
   // Campo para los extras contratados (texto formateado)
   extras_text?: string;
+  // Campos para información de pagos
+  payment_method?: string; // Tipo de pago del último pago o consolidado
+  payment_date?: string; // Fecha del último pago
+  payment_user?: string; // Usuario que realizó el pago
+  payments?: AviratoPayment[]; // Array completo de pagos (opcional)
 }
 
 export interface AviratoReservationsResponse {
@@ -209,13 +214,23 @@ export interface AviratoReservationExtrasResponse {
 }
 
 export interface AviratoPayment {
-  payment_id: number;
   reservation_id: number;
-  amount: number;
-  payment_method: string;
-  payment_date: string;
-  status?: string;
+  quantity: number;
+  type: string;
   description?: string;
+  date: string;
+  origin?: string;
+  user?: string;
+  // Campos adicionales opcionales por si la API devuelve más
+  payment_id?: number;
+  amount?: number;
+  payment_method?: string;
+  payment_date?: string;
+  status?: string;
+  user_id?: number;
+  user_name?: string;
+  created_by?: string;
+  username?: string;
 }
 
 export interface AviratoPaymentsResponse {
@@ -513,8 +528,13 @@ export class AviratoService {
             // Get all payments for this reservation
             const payments = await this.getPaymentsByReservation(reservationId, webCode);
 
+            // Log de debug para ver los datos recibidos
+            if (payments.length > 0) {
+              console.log(`Reservation ${reservationId} - Payments received:`, payments);
+            }
+
             // Calculate total paid amount from registered payments
-            const totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+            const totalPaid = payments.reduce((sum, payment) => sum + (payment.quantity || payment.amount || 0), 0);
 
             if (totalPaid > 0) {
               // Hay pagos registrados en el sistema - usar esos datos
@@ -523,6 +543,34 @@ export class AviratoService {
 
               reservation.billing_total = pendingAmount > 0 ? pendingAmount : 0;
               reservation.is_fully_paid = isFullyPaid;
+
+              // Guardar array completo de pagos
+              reservation.payments = payments;
+
+              // Extraer datos del último pago (el más reciente)
+              if (payments.length > 0) {
+                // Ordenar pagos por fecha (más reciente primero)
+                const sortedPayments = [...payments].sort((a, b) => {
+                  const dateA = new Date(a.date || a.payment_date || '').getTime();
+                  const dateB = new Date(b.date || b.payment_date || '').getTime();
+                  return dateB - dateA; // Descendente (más reciente primero)
+                });
+
+                const lastPayment = sortedPayments[0];
+
+                // Usar los campos correctos de la API real
+                reservation.payment_method = lastPayment.type || lastPayment.payment_method || '';
+                reservation.payment_date = lastPayment.date || lastPayment.payment_date || '';
+                reservation.payment_user = lastPayment.user || lastPayment.user_name || lastPayment.username || lastPayment.created_by || '';
+
+                // Si hay múltiples pagos, consolidar métodos de pago
+                if (payments.length > 1) {
+                  const methods = [...new Set(payments.map(p => p.type || p.payment_method).filter(Boolean))];
+                  if (methods.length > 1) {
+                    reservation.payment_method = methods.join(', ');
+                  }
+                }
+              }
             } else {
               // No hay pagos registrados en el endpoint - consultar el campo is_paid de la reserva
               // Esto puede significar que se pagó por otro medio (efectivo, transferencia directa, etc.)
@@ -530,10 +578,16 @@ export class AviratoService {
                 // La reserva está marcada como pagada aunque no haya pagos registrados
                 reservation.billing_total = 0;
                 reservation.is_fully_paid = true;
+                reservation.payment_method = '';
+                reservation.payment_date = '';
+                reservation.payment_user = '';
               } else {
                 // La reserva no está pagada
                 reservation.billing_total = reservationPrice;
                 reservation.is_fully_paid = false;
+                reservation.payment_method = '';
+                reservation.payment_date = '';
+                reservation.payment_user = '';
               }
             }
           } catch (error) {
@@ -541,6 +595,9 @@ export class AviratoService {
             // En caso de error, usar el campo is_paid como fallback
             reservation.is_fully_paid = isPaidField;
             reservation.billing_total = isPaidField ? 0 : reservationPrice;
+            reservation.payment_method = '';
+            reservation.payment_date = '';
+            reservation.payment_user = '';
           }
         }));
 
@@ -636,6 +693,12 @@ export class AviratoService {
 
     try {
       const paymentsResponse: AviratoPaymentsResponse = await response.json();
+
+      // Log de debug para ver la respuesta completa
+      if (paymentsResponse.data && paymentsResponse.data.length > 0) {
+        console.log(`✅ Payments found for reservation ${reservationId}:`, paymentsResponse.data);
+      }
+
       return paymentsResponse.status === 'success' ? paymentsResponse.data : [];
     } catch (error) {
       console.warn(`Failed to parse payments response for reservation ${reservationId}:`, error);
