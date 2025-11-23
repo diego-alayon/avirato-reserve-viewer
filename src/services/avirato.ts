@@ -548,55 +548,8 @@ export class AviratoService {
           ? extrasFound.join(', ')
           : 'No tiene extras contratados';
 
-        // Mock billing lines for reservation 1567 (testing expandable rows)
-        const reservationId = reservation.reservation_id || reservation.id;
-        const numericId = typeof reservationId === 'string' ? parseInt(reservationId) : reservationId;
-
-        // Debug: log todos los IDs para encontrar 1567
-        if (numericId >= 1560 && numericId <= 1570) {
-          console.log('📋 Reservation ID check:', {
-            reservationId,
-            numericId,
-            type: typeof reservationId,
-            client: reservation.client?.name
-          });
-        }
-
-        if (numericId === 1567) {
-          console.log('✅ Adding billing lines to reservation 1567:', {
-            id: reservationId,
-            numericId,
-            client: reservation.client?.name,
-            price: reservation.price
-          });
-          reservation.billing_lines = [
-            {
-              id: '1567-1',
-              concept: 'Coste de reserva',
-              quantity: 1,
-              unit_price: reservation.price || 0,
-              total: reservation.price || 0,
-              type: 'reservation'
-            },
-            {
-              id: '1567-2',
-              concept: 'Extra: Limpieza adicional',
-              quantity: 1,
-              unit_price: 50.00,
-              total: 50.00,
-              type: 'extra'
-            },
-            {
-              id: '1567-3',
-              concept: 'Extra: Cuna',
-              quantity: 1,
-              unit_price: 25.00,
-              total: 25.00,
-              type: 'extra'
-            }
-          ];
-          console.log('✅ Billing lines added:', reservation.billing_lines);
-        }
+        // Convert charges to billing lines for all reservations
+        reservation.billing_lines = this.convertChargesToBillingLines(reservation);
       }
 
       console.log(`Processed ${allReservations.length} reservations with extras information`);
@@ -722,6 +675,69 @@ export class AviratoService {
     return consolidatedResponse;
   }
 
+  /**
+   * Converts charges and predefinedCharges arrays to billing lines format
+   * @param reservation - The reservation object with charges data
+   * @returns Array of billing lines
+   */
+  private convertChargesToBillingLines(reservation: AviratoReservation): BillingLine[] {
+    const billingLines: BillingLine[] = [];
+    let lineIndex = 0;
+
+    // 1. Add base reservation cost as first billing line
+    billingLines.push({
+      id: `${reservation.reservation_id}-${lineIndex++}`,
+      concept: 'Alojamiento',
+      quantity: 1,
+      unit_price: reservation.price || 0,
+      total: reservation.price || 0,
+      type: 'reservation'
+    });
+
+    // 2. Process charges array
+    if (reservation.charges && Array.isArray(reservation.charges)) {
+      for (const charge of reservation.charges) {
+        // Skip if no concept or if it's the base reservation charge
+        if (!charge.concept) continue;
+
+        const quantity = charge.quantity || 1;
+        const unitPrice = charge.price || 0;
+        const total = charge.total || (unitPrice * quantity);
+
+        billingLines.push({
+          id: `${reservation.reservation_id}-${lineIndex++}`,
+          concept: charge.concept,
+          quantity: quantity,
+          unit_price: unitPrice,
+          total: total,
+          type: charge.type || 'extra'
+        });
+      }
+    }
+
+    // 3. Process predefinedCharges array
+    if (reservation.predefinedCharges && Array.isArray(reservation.predefinedCharges)) {
+      for (const charge of reservation.predefinedCharges) {
+        // Skip if no concept
+        if (!charge.concept) continue;
+
+        const quantity = charge.quantity || 1;
+        const unitPrice = charge.price || 0;
+        const total = charge.total || (unitPrice * quantity);
+
+        billingLines.push({
+          id: `${reservation.reservation_id}-${lineIndex++}`,
+          concept: charge.concept,
+          quantity: quantity,
+          unit_price: unitPrice,
+          total: total,
+          type: charge.type || 'extra'
+        });
+      }
+    }
+
+    return billingLines;
+  }
 
   async getBillingForReservation(reservationId: number, webCode: number): Promise<AviratoBillingData[]> {
     if (!this.isAuthenticated()) {
