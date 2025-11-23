@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { safeDateFormatSimple } from '@/utils/dateHelpers';
 import {
   RefreshCw,
-  LogOut,
   Calendar as CalendarIcon,
   Search,
   Home,
@@ -198,11 +197,8 @@ const Reservations = () => {
   });
 
   return (
-    <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
-      <div className="flex items-center justify-between space-y-2">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Serra Nature Dashboard</h2>
-        </div>
+    <div className="flex-1 flex-col space-y-4">
+      <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Popover>
             <PopoverTrigger asChild>
@@ -266,14 +262,6 @@ const Reservations = () => {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             {isLoading ? 'Cargando...' : 'Buscar Reservas'}
-          </Button>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            size="sm"
-            title="Cerrar Sesión"
-          >
-            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
