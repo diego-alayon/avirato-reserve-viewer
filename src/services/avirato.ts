@@ -128,6 +128,17 @@ export interface AviratoReservation {
   payments?: AviratoPayment[]; // Array completo de pagos (opcional)
   // Campo para el link de pago de la reserva
   payment_link?: string; // URL de la tienda online para pagar
+  // Líneas de facturación (coste reserva + extras)
+  billing_lines?: BillingLine[];
+}
+
+export interface BillingLine {
+  id: string;
+  concept: string;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  type: 'reservation' | 'extra';
 }
 
 export interface AviratoReservationsResponse {
@@ -464,6 +475,7 @@ export class AviratoService {
       }
 
       console.log('=== PROCESSING RESERVATIONS ===');
+      console.log(`🔄 Processing ${allReservations.length} reservations...`);
       for (const reservation of allReservations) {
         reservation.regime_name = reservation.regime;
 
@@ -535,6 +547,56 @@ export class AviratoService {
         reservation.extras_text = extrasFound.length > 0
           ? extrasFound.join(', ')
           : 'No tiene extras contratados';
+
+        // Mock billing lines for reservation 1567 (testing expandable rows)
+        const reservationId = reservation.reservation_id || reservation.id;
+        const numericId = typeof reservationId === 'string' ? parseInt(reservationId) : reservationId;
+
+        // Debug: log todos los IDs para encontrar 1567
+        if (numericId >= 1560 && numericId <= 1570) {
+          console.log('📋 Reservation ID check:', {
+            reservationId,
+            numericId,
+            type: typeof reservationId,
+            client: reservation.client?.name
+          });
+        }
+
+        if (numericId === 1567) {
+          console.log('✅ Adding billing lines to reservation 1567:', {
+            id: reservationId,
+            numericId,
+            client: reservation.client?.name,
+            price: reservation.price
+          });
+          reservation.billing_lines = [
+            {
+              id: '1567-1',
+              concept: 'Coste de reserva',
+              quantity: 1,
+              unit_price: reservation.price || 0,
+              total: reservation.price || 0,
+              type: 'reservation'
+            },
+            {
+              id: '1567-2',
+              concept: 'Extra: Limpieza adicional',
+              quantity: 1,
+              unit_price: 50.00,
+              total: 50.00,
+              type: 'extra'
+            },
+            {
+              id: '1567-3',
+              concept: 'Extra: Cuna',
+              quantity: 1,
+              unit_price: 25.00,
+              total: 25.00,
+              type: 'extra'
+            }
+          ];
+          console.log('✅ Billing lines added:', reservation.billing_lines);
+        }
       }
 
       console.log(`Processed ${allReservations.length} reservations with extras information`);

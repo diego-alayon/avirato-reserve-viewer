@@ -62,6 +62,47 @@ export const useAvirato = () => {
       if (response.status === 'success') {
         // Flatten the nested arrays to get all reservations
         const allReservations = response.data.flat();
+
+        // Add mock billing lines for reservation 1567 (testing expandable rows)
+        const reservationWith1567 = allReservations.find(r => {
+          const id = r.reservation_id || r.id;
+          const numericId = typeof id === 'string' ? parseInt(id) : id;
+          return numericId === 1567;
+        });
+
+        if (reservationWith1567) {
+          console.log('✅ Found reservation 1567, adding billing lines');
+          reservationWith1567.billing_lines = [
+            {
+              id: '1567-1',
+              concept: 'Coste de reserva',
+              quantity: 1,
+              unit_price: reservationWith1567.price || 0,
+              total: reservationWith1567.price || 0,
+              type: 'reservation'
+            },
+            {
+              id: '1567-2',
+              concept: 'Extra: Limpieza adicional',
+              quantity: 1,
+              unit_price: 50.00,
+              total: 50.00,
+              type: 'extra'
+            },
+            {
+              id: '1567-3',
+              concept: 'Extra: Cuna',
+              quantity: 1,
+              unit_price: 25.00,
+              total: 25.00,
+              type: 'extra'
+            }
+          ];
+          console.log('✅ Billing lines added to reservation:', reservationWith1567);
+        } else {
+          console.log('❌ Reservation 1567 not found in results');
+        }
+
         console.log('Reservations data:', allReservations);
         console.log('First reservation:', allReservations[0]);
         setReservations(allReservations);

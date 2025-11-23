@@ -24,11 +24,13 @@ import {
   Copy,
   ExternalLink,
   ShoppingBag,
-  X
+  X,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -89,6 +91,7 @@ const Reservations = () => {
     from: undefined,
     to: undefined
   });
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const handleLogout = () => {
     logout();
@@ -110,6 +113,18 @@ const Reservations = () => {
   const handleClearDateRange = () => {
     setTempDateRange({ from: undefined, to: undefined });
     setDateRange({ from: undefined, to: undefined });
+  };
+
+  const toggleRowExpansion = (reservationId: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(reservationId)) {
+        newSet.delete(reservationId);
+      } else {
+        newSet.add(reservationId);
+      }
+      return newSet;
+    });
   };
 
   const handleFetchReservations = () => {
@@ -359,16 +374,42 @@ const Reservations = () => {
                 // Determinar si tiene pago pendiente
                 const hasPaymentPending = !(reservation.is_fully_paid !== undefined ? reservation.is_fully_paid : reservation.is_paid);
 
+                const reservationId = reservation.reservation_id || reservation.reservationId;
+                const isExpanded = expandedRows.has(reservationId);
+                const hasBillingLines = reservation.billing_lines && reservation.billing_lines.length > 0;
+
+                // Debug para reserva 1567
+                if (reservationId === 1567) {
+                  console.log('🔍 Reservation 1567 render:', {
+                    id: reservationId,
+                    billing_lines: reservation.billing_lines,
+                    hasBillingLines,
+                    client: clientName
+                  });
+                }
+
                 return (
-                  <TableRow
-                    key={reservation.reservation_id || reservation.reservationId}
-                    className={`h-9 ${hasPaymentPending ? 'bg-yellow-500/10' : ''}`}
-                  >
-                    <TableCell className="font-medium" title={`${reservation.reservation_id || reservation.reservationId}`}>
-                      <span className="truncate block max-w-[60ch]">
-                        {truncateText(`${reservation.reservation_id || reservation.reservationId}`)}
-                      </span>
-                    </TableCell>
+                  <Fragment key={reservationId}>
+                    <TableRow
+                      className={`h-9 ${hasPaymentPending ? 'bg-yellow-500/10' : ''} ${hasBillingLines ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                      onClick={() => hasBillingLines && toggleRowExpansion(reservationId)}
+                    >
+                      <TableCell className="font-medium" title={`${reservationId}`}>
+                        <div className="flex items-center gap-2">
+                          {hasBillingLines ? (
+                            isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-blue-600" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-blue-600" />
+                            )
+                          ) : (
+                            <div className="w-4" />
+                          )}
+                          <span className="truncate block max-w-[60ch]">
+                            {truncateText(`${reservationId}`)}
+                          </span>
+                        </div>
+                      </TableCell>
                     <TableCell title={clientName}>
                       <span className="truncate block max-w-[60ch]">
                         {truncateText(clientName)}
@@ -555,6 +596,27 @@ const Reservations = () => {
                       </span>
                     </TableCell>
                   </TableRow>
+                  {isExpanded && reservation.billing_lines && reservation.billing_lines.map((billingLine) => (
+                    <TableRow
+                      key={billingLine.id}
+                      className="h-9 bg-blue-50/50 border-l-4 border-l-blue-400"
+                    >
+                      <TableCell colSpan={3} className="pl-12">
+                        <span className="text-sm text-gray-600">{billingLine.concept}</span>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        Cantidad: {billingLine.quantity}
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        Precio unitario: €{billingLine.unit_price.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-sm font-semibold text-gray-700">
+                        Total: €{billingLine.total.toFixed(2)}
+                      </TableCell>
+                      <TableCell colSpan={15}></TableCell>
+                    </TableRow>
+                  ))}
+                </Fragment>
                 );
               })}
             </TableBody>
