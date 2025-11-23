@@ -684,17 +684,7 @@ export class AviratoService {
     const billingLines: BillingLine[] = [];
     let lineIndex = 0;
 
-    // 1. Add base reservation cost as first billing line
-    billingLines.push({
-      id: `${reservation.reservation_id}-${lineIndex++}`,
-      concept: 'Alojamiento',
-      quantity: 1,
-      unit_price: reservation.price || 0,
-      total: reservation.price || 0,
-      type: 'reservation'
-    });
-
-    // 2. Process charges array
+    // Process charges array
     if (reservation.charges && Array.isArray(reservation.charges)) {
       for (const charge of reservation.charges) {
         // Skip if no concept or if it's the base reservation charge

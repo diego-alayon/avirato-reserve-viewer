@@ -596,26 +596,57 @@ const Reservations = () => {
                       </span>
                     </TableCell>
                   </TableRow>
-                  {isExpanded && reservation.billing_lines && reservation.billing_lines.map((billingLine) => (
-                    <TableRow
-                      key={billingLine.id}
-                      className="h-9 bg-blue-50/50 border-l-4 border-l-blue-400"
-                    >
-                      <TableCell colSpan={3} className="pl-12">
-                        <span className="text-sm text-gray-600">{billingLine.concept}</span>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        Cantidad: {billingLine.quantity}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        Precio unitario: €{billingLine.unit_price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-sm font-semibold text-gray-700">
-                        Total: €{billingLine.total.toFixed(2)}
-                      </TableCell>
-                      <TableCell colSpan={15}></TableCell>
-                    </TableRow>
-                  ))}
+                  {isExpanded && reservation.billing_lines && (
+                    <>
+                      {/* Encabezado de la tabla de facturación */}
+                      <TableRow className="h-9 bg-blue-200/60 border-l-4 border-l-blue-500">
+                        <TableCell className="pl-12 text-xs font-semibold text-gray-700">
+                          CANT.
+                        </TableCell>
+                        <TableCell colSpan={2} className="text-xs font-semibold text-gray-700">
+                          CONCEPTO
+                        </TableCell>
+                        <TableCell className="text-xs font-semibold text-gray-700">
+                          PRECIO UNIT.
+                        </TableCell>
+                        <TableCell className="text-xs font-semibold text-gray-700">
+                          TOTAL
+                        </TableCell>
+                        <TableCell colSpan={15}></TableCell>
+                      </TableRow>
+                      {/* Filas de datos */}
+                      {reservation.billing_lines.map((billingLine) => (
+                        <TableRow
+                          key={billingLine.id}
+                          className="h-9 bg-blue-50/50 border-l-4 border-l-blue-400"
+                        >
+                          <TableCell className="pl-12 text-sm text-gray-600">
+                            {billingLine.quantity}
+                          </TableCell>
+                          <TableCell colSpan={2} className="text-sm text-gray-600">
+                            {billingLine.concept}
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-600">
+                            €{billingLine.unit_price.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-700">
+                            €{billingLine.total.toFixed(2)}
+                          </TableCell>
+                          <TableCell colSpan={15}></TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="h-9 bg-blue-100/70 border-l-4 border-l-blue-600">
+                        <TableCell colSpan={3} className="pl-12 text-sm font-bold text-gray-800">
+                          Total
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600"></TableCell>
+                        <TableCell className="text-sm font-bold text-gray-800">
+                          €{reservation.billing_lines.reduce((sum, line) => sum + line.total, 0).toFixed(2)}
+                        </TableCell>
+                        <TableCell colSpan={15}></TableCell>
+                      </TableRow>
+                    </>
+                  )}
                 </Fragment>
                 );
               })}
