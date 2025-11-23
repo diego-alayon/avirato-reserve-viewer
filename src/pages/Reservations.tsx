@@ -25,8 +25,9 @@ import {
   ExternalLink,
   ShoppingBag,
   X,
-  ChevronDown,
-  ChevronRight
+  Plus,
+  Minus,
+  Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAvirato } from '@/hooks/useAvirato';
@@ -200,10 +201,7 @@ const Reservations = () => {
     <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
       <div className="flex items-center justify-between space-y-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Avirato Dashboard</h2>
-          <p className="text-muted-foreground">
-            Gestión de reservas hoteleras
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight">Serra Nature Dashboard</h2>
         </div>
         <div className="flex items-center space-x-2">
           <Popover>
@@ -273,9 +271,9 @@ const Reservations = () => {
             onClick={handleLogout}
             variant="outline"
             size="sm"
+            title="Cerrar Sesión"
           >
-            <LogOut className="h-4 w-4 mr-2" />
-            Cerrar Sesión
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -398,9 +396,9 @@ const Reservations = () => {
                         <div className="flex items-center gap-2">
                           {hasBillingLines ? (
                             isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-blue-600" />
+                              <Minus className="h-4 w-4 text-green-600" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 text-blue-600" />
+                              <Plus className="h-4 w-4 text-green-600" />
                             )
                           ) : (
                             <div className="w-4" />
@@ -416,9 +414,23 @@ const Reservations = () => {
                       </span>
                     </TableCell>
                     <TableCell title={reservation.client?.phone || "No disponible"}>
-                      <span className="truncate block max-w-[60ch]">
-                        {truncateText(reservation.client?.phone || "No disponible")}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {reservation.client?.phone && reservation.client.phone !== "No disponible" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWhatsApp(reservation.client?.phone || '');
+                            }}
+                            className="p-1 hover:bg-green-50 rounded transition-colors"
+                            title="Abrir WhatsApp"
+                          >
+                            <MessageCircle className="h-4 w-4 text-green-600" />
+                          </button>
+                        )}
+                        <span className="truncate block max-w-[60ch]">
+                          {truncateText(reservation.client?.phone || "No disponible")}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell title={operatorName}>
                       <span className="truncate block max-w-[60ch]">
@@ -559,7 +571,7 @@ const Reservations = () => {
                               href={reservation.payment_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm truncate max-w-[200px]"
+                              className="text-green-600 hover:text-green-800 hover:underline flex items-center gap-1 text-sm truncate max-w-[200px]"
                               title={reservation.payment_link}
                             >
                               <span className="truncate">Link de pago</span>
@@ -582,7 +594,7 @@ const Reservations = () => {
                           </>
                         ) : (
                           <>
-                            <ShoppingBag className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <ShoppingBag className="h-4 w-4 text-green-600 flex-shrink-0" />
                             <span className="truncate block max-w-[60ch]">
                               {truncateText(extras)}
                             </span>
@@ -599,7 +611,7 @@ const Reservations = () => {
                   {isExpanded && reservation.billing_lines && (
                     <>
                       {/* Encabezado de la tabla de facturación */}
-                      <TableRow className="h-9 bg-blue-200/60 border-l-4 border-l-blue-500">
+                      <TableRow className="h-9 bg-green-200/60 border-l-4 border-l-green-500">
                         <TableCell className="pl-12 text-xs font-semibold text-gray-700">
                           CANT.
                         </TableCell>
@@ -618,7 +630,7 @@ const Reservations = () => {
                       {reservation.billing_lines.map((billingLine) => (
                         <TableRow
                           key={billingLine.id}
-                          className="h-9 bg-blue-50/50 border-l-4 border-l-blue-400"
+                          className="h-9 bg-green-50/50 border-l-4 border-l-green-400"
                         >
                           <TableCell className="pl-12 text-sm text-gray-600">
                             {billingLine.quantity}
@@ -635,7 +647,7 @@ const Reservations = () => {
                           <TableCell colSpan={15}></TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="h-9 bg-blue-100/70 border-l-4 border-l-blue-600">
+                      <TableRow className="h-9 bg-green-100/70 border-l-4 border-l-green-600">
                         <TableCell colSpan={3} className="pl-12 text-sm font-bold text-gray-800">
                           Total
                         </TableCell>
