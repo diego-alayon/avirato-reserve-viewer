@@ -47,10 +47,11 @@ import {
   Minus,
   Phone,
   Settings2,
+  Filter,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAvirato } from "@/hooks/useAvirato";
-import { useState, Fragment } from "react";
+import { useState, Fragment, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,14 @@ const openWhatsApp = (phone: string, message: string = "") => {
   window.open(whatsappUrl, "_blank");
 };
 
+// Helper function to format operator name
+const formatOperatorName = (operatorName: string) => {
+  if (operatorName === "Operador 36") {
+    return "NoMolesten";
+  }
+  return operatorName;
+};
+
 const Reservations = () => {
   const { isLoading, reservations, fetchReservations, logout } = useAvirato();
   const navigate = useNavigate();
@@ -147,6 +156,35 @@ const Reservations = () => {
     extras: true,
     observaciones: true,
   });
+
+  // Get unique channels from reservations
+  const uniqueChannels = Array.from(
+    new Set(
+      reservations
+        .map((r) => formatOperatorName(r.operator_name || "No disponible"))
+        .filter(Boolean)
+    )
+  ).sort();
+
+  // Initialize channel filters state with all channels selected
+  const [channelFilters, setChannelFilters] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  // Update channelFilters when reservations change
+  useEffect(() => {
+    const newFilters: Record<string, boolean> = {};
+    uniqueChannels.forEach((channel) => {
+      if (channelFilters[channel] === undefined) {
+        newFilters[channel] = true;
+      } else {
+        newFilters[channel] = channelFilters[channel];
+      }
+    });
+    if (Object.keys(newFilters).length > 0 && JSON.stringify(newFilters) !== JSON.stringify(channelFilters)) {
+      setChannelFilters(newFilters);
+    }
+  }, [reservations]);
 
   const handleLogout = () => {
     logout();
@@ -229,6 +267,14 @@ const Reservations = () => {
         safeReservationId.includes(safeSearchTerm);
 
       if (!matchesSearch) return false;
+    }
+
+    // Filter by channel
+    const operatorName = formatOperatorName(
+      reservation.operator_name || "No disponible"
+    );
+    if (Object.keys(channelFilters).length > 0 && !channelFilters[operatorName]) {
+      return false;
     }
 
     if (dateRange.from && dateRange.to) {
@@ -608,7 +654,55 @@ const Reservations = () => {
                   )}
                   {visibleColumns.canal && (
                     <TableHead className="text-black font-bold whitespace-nowrap">
-                      Canal
+                      <div className="flex items-center gap-2">
+                        <span>Canal</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-[200px]">
+                            <DropdownMenuLabel>Filtrar por canal</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem
+                              checked={
+                                uniqueChannels.every(
+                                  (channel) => channelFilters[channel] !== false
+                                )
+                              }
+                              onCheckedChange={(checked) => {
+                                const newFilters: Record<string, boolean> = {};
+                                uniqueChannels.forEach((channel) => {
+                                  newFilters[channel] = checked;
+                                });
+                                setChannelFilters(newFilters);
+                              }}
+                            >
+                              Seleccionar todos
+                            </DropdownMenuCheckboxItem>
+                            <DropdownMenuSeparator />
+                            {uniqueChannels.map((channel) => (
+                              <DropdownMenuCheckboxItem
+                                key={channel}
+                                checked={channelFilters[channel] !== false}
+                                onCheckedChange={(checked) =>
+                                  setChannelFilters({
+                                    ...channelFilters,
+                                    [channel]: checked,
+                                  })
+                                }
+                              >
+                                {channel}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {visibleColumns.tipoVilla && (
@@ -701,8 +795,9 @@ const Reservations = () => {
                       : reservation.client_name ||
                         reservation.client_id ||
                         "No disponible";
-                  const operatorName =
-                    reservation.operator_name || "No disponible";
+                  const operatorName = formatOperatorName(
+                    reservation.operator_name || "No disponible"
+                  );
                   const villaType =
                     reservation.space_type_name || "No disponible";
                   const status = reservation.status.replace(
