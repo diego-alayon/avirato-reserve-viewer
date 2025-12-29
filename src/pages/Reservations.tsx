@@ -230,6 +230,13 @@ const Reservations = () => {
       const expandedEnd = new Date(dateRange.to);
       expandedEnd.setDate(expandedEnd.getDate() + 60);
 
+      console.log('🔍 DEBUG - Date Range Selected:', {
+        originalFrom: dateRange.from,
+        originalTo: dateRange.to,
+        expandedStart,
+        expandedEnd
+      });
+
       fetchReservations(expandedStart, expandedEnd);
     } else {
       const defaultEnd = new Date();
@@ -307,6 +314,23 @@ const Reservations = () => {
       const checkOutInRange =
         checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
       const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
+
+      // Log for debugging 2026 dates
+      if (cyear === 2026 || oyear === 2026) {
+        console.log('🔍 DEBUG - 2026 Reservation Found:', {
+          reservationId: reservation.reservation_id || reservation.reservationId,
+          checkInStr,
+          checkOutStr,
+          checkInDate,
+          checkOutDate,
+          rangeStart,
+          rangeEnd,
+          checkInInRange,
+          checkOutInRange,
+          isActive,
+          passes: checkInInRange || checkOutInRange || isActive
+        });
+      }
 
       return checkInInRange || checkOutInRange || isActive;
     }

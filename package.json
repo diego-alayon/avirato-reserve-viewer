@@ -8,7 +8,12 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "git:commit": "./git-auto.sh commit",
+    "git:merge": "./git-auto.sh merge",
+    "git:commit-merge": "./git-auto.sh commit-merge",
+    "git:status": "./git-auto.sh status",
+    "git:help": "./git-auto.sh help"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

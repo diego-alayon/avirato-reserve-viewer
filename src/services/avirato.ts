@@ -319,7 +319,9 @@ export class AviratoService {
     const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
     console.log('=== FETCHING RESERVATIONS ===');
-    console.log('Date range:', { startDateStr, endDateStr });
+    console.log('Input dates:', { startDate, endDate });
+    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
+    console.log('Date strings for API:', { startDateStr, endDateStr });
 
     const allReservationsData: AviratoReservation[][] = [];
     let hasNextPage = true;
@@ -391,6 +393,17 @@ export class AviratoService {
     const allReservations = allReservationsData.flat();
     console.log(`Total reservations fetched: ${allReservations.length}`);
 
+    // Count 2026 reservations for debugging
+    const reservations2026 = allReservations.filter(r => {
+      const checkIn = r.check_in_date || r.checkInDate || '';
+      return checkIn.startsWith('2026');
+    });
+    console.log(`Reservations with 2026 dates: ${reservations2026.length}`, reservations2026.map(r => ({
+      id: r.reservation_id || r.reservationId,
+      checkIn: r.check_in_date || r.checkInDate,
+      checkOut: r.check_out_date || r.checkOutDate
+    })));
+
     const consolidatedResponse: AviratoReservationsResponse = {
       status: 'success',
       data: [allReservations],
@@ -410,8 +423,10 @@ export class AviratoService {
 
       const operatorMap = new Map<number, string>([
         [-1, "Motor de reservas"],
-        [0, "Todos los operadores"],
-        [1, "Channel Manager Booking.com"],
+        [0, "Cliente Hotel"],
+        [1, "Booking.com"],
+        [2, "Expedia"],
+        [18, "SmartBox"],
         [28, "Channel Manager Google"],
         [1003, "Travelzoo"]
       ]);
