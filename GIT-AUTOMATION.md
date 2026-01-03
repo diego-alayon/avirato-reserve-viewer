@@ -1,15 +1,21 @@
-# Git Automation Script
+# Git Automation Scripts
 
-Script automatizado para facilitar commits y merges en el proyecto Serra Nature.
+Scripts automatizados para facilitar commits y merges en el proyecto Serra Nature.
 
 ## Características
 
 - ✅ Commits automáticos con formato estándar
 - ✅ Merges seguros con verificaciones
+- ✅ **Merge automático a main** (nuevo)
 - ✅ Push automático opcional
 - ✅ Interfaz interactiva
 - ✅ Mensajes de commit con firma de Claude Code
 - ✅ Manejo de conflictos
+
+## Scripts Disponibles
+
+1. **git-auto.sh** - Script general para commits y merges
+2. **merge-to-main.sh** - Script dedicado para merge a rama main (recomendado)
 
 ## Uso
 
@@ -34,6 +40,9 @@ npm run git:merge main
 # Commit y merge en un solo comando
 npm run git:commit-merge "Fix bug" main
 
+# Merge a main (automatizado) ⭐ NUEVO
+npm run git:merge-to-main
+
 # Ver ayuda
 npm run git:help
 ```
@@ -55,9 +64,54 @@ npm run git:help
 
 # Ver estado
 ./git-auto.sh status
+
+# Merge a main (automatizado)
+./merge-to-main.sh
 ```
 
 ## Comandos Disponibles
+
+### `merge-to-main` ⭐ NUEVO - Script Dedicado
+
+**Archivo:** `merge-to-main.sh`
+
+Script automatizado específicamente diseñado para hacer merge de tu rama actual a `main`.
+
+**Características:**
+- ✅ Verifica que no haya cambios sin commitear
+- ✅ Muestra los commits que se van a mergear
+- ✅ Pide confirmación antes de proceder
+- ✅ Actualiza main con últimos cambios del remoto
+- ✅ Hace merge con estrategia `--no-ff`
+- ✅ Push automático a main
+- ✅ Regresa a tu rama original
+- ✅ Opción de actualizar tu rama con los cambios de main
+
+**Uso:**
+```bash
+npm run git:merge-to-main
+```
+
+**Proceso que ejecuta:**
+1. Valida que no estés en main
+2. Verifica que no haya cambios sin commitear
+3. Muestra commits a mergear
+4. Pide confirmación
+5. Obtiene últimos cambios del remoto
+6. Cambia a main y actualiza
+7. Hace merge de tu rama
+8. Push a origin/main
+9. Regresa a tu rama original
+10. (Opcional) Actualiza tu rama con main
+
+**Ejemplo:**
+```bash
+# Estando en la rama last-app-api-integration
+npm run git:merge-to-main
+# El script hará todo el proceso automáticamente
+```
+
+---
 
 ### `commit [mensaje]`
 Commitea todos los cambios en el staging area.
@@ -104,7 +158,28 @@ npm run git:status
 
 ## Flujo de Trabajo Típico
 
-### Escenario 1: Commit y push a la rama actual
+### Escenario 1: Merge rápido a main (RECOMENDADO) ⭐
+
+```bash
+# 1. Asegúrate de que todos tus cambios estén commiteados
+npm run git:status
+
+# 2. Si hay cambios, commitéalos
+npm run git:commit "Your commit message"
+
+# 3. Merge a main con un solo comando
+npm run git:merge-to-main
+
+# El script hará:
+# ✓ Verificación de estado
+# ✓ Muestra de commits a mergear
+# ✓ Confirmación
+# ✓ Merge a main
+# ✓ Push automático
+# ✓ Regreso a tu rama
+```
+
+### Escenario 2: Commit y push a la rama actual
 
 ```bash
 # 1. Ver cambios
@@ -116,7 +191,7 @@ npm run git:commit "Add new feature"
 # 3. Cuando pregunte si deseas hacer push, responde: s
 ```
 
-### Escenario 2: Commit y merge a main
+### Escenario 3: Commit y merge a main (usando git-auto.sh)
 
 ```bash
 # 1. Asegúrate de estar en tu rama de trabajo
@@ -134,7 +209,7 @@ npm run git:commit-merge "Implement user authentication" main
 #    - (Opcional) Regresar a tu rama
 ```
 
-### Escenario 3: Solo merge (si ya hiciste commit)
+### Escenario 4: Solo merge (si ya hiciste commit)
 
 ```bash
 # Si ya tienes commits en tu rama y solo quieres hacer merge
