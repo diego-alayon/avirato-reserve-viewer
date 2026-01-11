@@ -318,11 +318,6 @@ export class AviratoService {
     const startDateStr = adjustedStart.toISOString().split('T')[0];
     const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
-    console.log('=== FETCHING RESERVATIONS ===');
-    console.log('Input dates:', { startDate, endDate });
-    console.log('Adjusted dates:', { adjustedStart, adjustedEnd });
-    console.log('Date strings for API:', { startDateStr, endDateStr });
-
     const allReservationsData: AviratoReservation[][] = [];
     let hasNextPage = true;
     let cursor: string | undefined;
@@ -342,7 +337,6 @@ export class AviratoService {
       }
 
       const url = `${API_BASE_URL}/v3/reservation/dates?${params}`;
-      console.log(`Fetching page ${pageCount + 1}...`);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
@@ -374,7 +368,6 @@ export class AviratoService {
           allReservationsData.push(...pageData.data);
           hasNextPage = pageData.meta?.hasNextPage || false;
           cursor = pageData.meta?.cursor;
-          console.log(`Page ${pageCount + 1} fetched: ${pageData.data.flat().length} reservations`);
         } else {
           hasNextPage = false;
         }
@@ -391,18 +384,6 @@ export class AviratoService {
     }
 
     const allReservations = allReservationsData.flat();
-    console.log(`Total reservations fetched: ${allReservations.length}`);
-
-    // Count 2026 reservations for debugging
-    const reservations2026 = allReservations.filter(r => {
-      const checkIn = r.check_in_date || r.checkInDate || '';
-      return checkIn.startsWith('2026');
-    });
-    console.log(`Reservations with 2026 dates: ${reservations2026.length}`, reservations2026.map(r => ({
-      id: r.reservation_id || r.reservationId,
-      checkIn: r.check_in_date || r.checkInDate,
-      checkOut: r.check_out_date || r.checkOutDate
-    })));
 
     const consolidatedResponse: AviratoReservationsResponse = {
       status: 'success',
@@ -419,7 +400,6 @@ export class AviratoService {
     // Enrichment with space types (villa categories) and basic data
     if (consolidatedResponse.status === 'success') {
       const allReservations = consolidatedResponse.data.flat();
-      console.log('Enriching reservations with basic data and space type names');
 
       const operatorMap = new Map<number, string>([
         [-1, "Motor de reservas"],
@@ -438,59 +418,40 @@ export class AviratoService {
       let spaceNameMap = new Map<number, string>();
       try {
         const spaceTypesResponse = await this.getSpaceTypes(webCode);
-        console.log('=== SPACE TYPES RESPONSE RECEIVED ===');
-        console.log('Status:', spaceTypesResponse.status);
-        console.log('Total space types:', spaceTypesResponse.data?.length || 0);
 
         if (spaceTypesResponse.status === 'success' && spaceTypesResponse.data) {
           // Iterate through space types
           for (const spaceType of spaceTypesResponse.data) {
-            console.log(`Processing space_type: ${spaceType.name} (ID: ${spaceType.space_type_id})`);
-
             // Iterate through space subtypes (these are the villa typologies)
             if (spaceType.space_subtypes) {
               for (const subtype of spaceType.space_subtypes) {
                 spaceSubtypeMap.set(subtype.space_subtype_id, subtype.space_subtype_name);
-                console.log(`  Subtype mapping: ID ${subtype.space_subtype_id} -> "${subtype.space_subtype_name}"`);
 
                 // Iterate through spaces (individual villas)
                 if (subtype.spaces) {
                   for (const space of subtype.spaces) {
                     spaceNameMap.set(space.space_id, space.space_name);
-                    console.log(`    Space mapping: ID ${space.space_id} -> "${space.space_name}"`);
                   }
                 }
               }
             }
           }
-
-          console.log('=== SPACE SUBTYPE MAP CREATED ===');
-          console.log('Map size:', spaceSubtypeMap.size);
-          console.log('All subtype mappings:', Array.from(spaceSubtypeMap.entries()));
-          console.log('=== SPACE NAME MAP CREATED ===');
-          console.log('Map size:', spaceNameMap.size);
-          console.log('Sample space mappings:', Array.from(spaceNameMap.entries()).slice(0, 5));
         }
       } catch (error) {
-        console.error('ERROR fetching space types:', error);
+        logger.error('Error fetching space types:', error);
       }
 
       // Fetch extras catalog
       let extrasMap = new Map<number, string>();
       try {
         const extras = await this.getExtras(webCode);
-        console.log('=== EXTRAS CATALOG ===');
-        console.log('Total extras available:', extras.length);
         for (const extra of extras) {
           extrasMap.set(extra.extra_id, extra.name);
-          console.log(`Extra ID ${extra.extra_id}: "${extra.name}"`);
         }
       } catch (error) {
-        console.warn('Could not fetch extras catalog:', error);
+        logger.warn('Could not fetch extras catalog:', error);
       }
 
-      console.log('=== PROCESSING RESERVATIONS ===');
-      console.log(`🔄 Processing ${allReservations.length} reservations...`);
       for (const reservation of allReservations) {
         reservation.regime_name = reservation.regime;
 
@@ -567,12 +528,6 @@ export class AviratoService {
         reservation.billing_lines = this.convertChargesToBillingLines(reservation);
       }
 
-      console.log(`Processed ${allReservations.length} reservations with extras information`);
-
-      // Fetch payment information for each reservation
-      console.log('=== FETCHING PAYMENT INFORMATION ===');
-      console.log(`Processing payments for ${allReservations.length} reservations...`);
-
       const startTime = Date.now();
 
       // Procesar reservas en lotes paralelos para mejor performance
@@ -582,8 +537,6 @@ export class AviratoService {
       for (let i = 0; i < allReservations.length; i += BATCH_SIZE) {
         batches.push(allReservations.slice(i, i + BATCH_SIZE));
       }
-
-      console.log(`Processing ${allReservations.length} reservations in ${batches.length} batches of ${BATCH_SIZE}...`);
 
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
@@ -603,11 +556,6 @@ export class AviratoService {
 
             // Guardar el payment link
             reservation.payment_link = paymentLink || '';
-
-            // Log de debug para ver los datos recibidos
-            if (payments.length > 0) {
-              console.log(`Reservation ${reservationId} - Payments received:`, payments);
-            }
 
             // Calculate total paid amount from registered payments
             const totalPaid = payments.reduce((sum, payment) => sum + (payment.quantity || payment.amount || 0), 0);
@@ -676,15 +624,7 @@ export class AviratoService {
             reservation.payment_user = '';
           }
         }));
-
-        const processed = (batchIndex + 1) * BATCH_SIZE;
-        const total = allReservations.length;
-        console.log(`Processed batch ${batchIndex + 1}/${batches.length} (${Math.min(processed, total)}/${total} reservations)`);
       }
-
-      const endTime = Date.now();
-      const duration = ((endTime - startTime) / 1000).toFixed(2);
-      console.log(`✅ Completed payment processing for ${allReservations.length} reservations in ${duration}s`);
     }
 
     return consolidatedResponse;
@@ -756,9 +696,6 @@ export class AviratoService {
 
     // Endpoint correcto según la documentación
     const url = `${API_BASE_URL}/v3/billing?${params}`;
-    console.log('=== FETCHING BILLING ===');
-    console.log('URL:', url);
-    console.log('Reservation ID:', reservationId);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -823,21 +760,16 @@ export class AviratoService {
     try {
       const paymentsResponse: AviratoPaymentsResponse = await response.json();
 
-      // Log de debug para ver la respuesta completa
-      if (paymentsResponse.data && paymentsResponse.data.length > 0) {
-        console.log(`✅ Payments found for reservation ${reservationId}:`, paymentsResponse.data);
-      }
-
       return paymentsResponse.status === 'success' ? paymentsResponse.data : [];
     } catch (error) {
-      console.warn(`Failed to parse payments response for reservation ${reservationId}:`, error);
+      logger.warn(`Failed to parse payments response for reservation ${reservationId}:`, error);
       return [];
     }
   }
 
   async getPaymentLink(reservationId: number, webCode: number): Promise<string | null> {
     if (!this.token) {
-      console.warn('Cannot fetch payment link: No authentication token available');
+      logger.warn('Cannot fetch payment link: No authentication token available');
       return null;
     }
 
@@ -904,14 +836,12 @@ export class AviratoService {
       paymentLink = findPaymentLink(data);
 
       if (paymentLink) {
-        console.log(`✅ Payment link found for reservation ${reservationId}: ${paymentLink}`);
         return paymentLink;
       }
 
-      console.warn(`⚠️ Payment link (payments.avirato.com) not found in response for reservation ${reservationId}. Response structure:`, data);
       return null;
     } catch (error) {
-      console.error(`❌ Failed to fetch payment link for reservation ${reservationId}:`, error);
+      logger.error(`Failed to fetch payment link for reservation ${reservationId}:`, error);
       return null;
     }
   }
@@ -922,9 +852,7 @@ export class AviratoService {
     }
 
     const url = `${API_BASE_URL}/v3/regime?web_code=${webCode}`;
-    console.log('=== FETCHING REGIMES ===');
-    console.log('URL:', url);
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -980,8 +908,6 @@ export class AviratoService {
     });
 
     const url = `${API_BASE_URL}/v3/extra?${params}`;
-    console.log('=== FETCHING EXTRAS CATALOG ===');
-    console.log('URL:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -993,12 +919,11 @@ export class AviratoService {
     });
 
     if (!response.ok) {
-      console.warn(`Failed to fetch extras: ${response.statusText}`);
+      logger.warn(`Failed to fetch extras: ${response.statusText}`);
       return [];
     }
 
     const extrasResponse: AviratoExtrasResponse = await response.json();
-    console.log('Extras fetched:', extrasResponse.data?.length || 0);
     return extrasResponse.status === 'success' ? extrasResponse.data : [];
   }
 
@@ -1027,7 +952,7 @@ export class AviratoService {
       if (response.status === 404) {
         return [];
       }
-      console.warn(`Failed to fetch extras for reservation ${reservationId}`);
+      logger.warn(`Failed to fetch extras for reservation ${reservationId}`);
       return [];
     }
 
@@ -1046,8 +971,6 @@ export class AviratoService {
 
     // Correct endpoint is /v3/space
     const url = `${API_BASE_URL}/v3/space?${params}`;
-    console.log('=== FETCHING SPACES (with subtypes) ===');
-    console.log('URL:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -1060,13 +983,11 @@ export class AviratoService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch spaces: ${response.statusText}`, errorText);
+      logger.error(`Failed to fetch spaces: ${response.statusText}`, errorText);
       return { status: 'error', data: [] };
     }
 
     const spaceTypesResponse: AviratoSpaceTypesResponse = await response.json();
-    console.log('Raw API response received successfully');
-    console.log('Number of space types:', spaceTypesResponse.data?.length || 0);
     return spaceTypesResponse;
   }
 

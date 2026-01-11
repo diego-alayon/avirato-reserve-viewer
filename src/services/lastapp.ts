@@ -53,9 +53,6 @@ import type {
  */
 const API_BASE_URL = '/lastapp/v2';
 
-// Debug: Log API URL on module load
-console.log('🔧 [LastApp Module] API_BASE_URL =', API_BASE_URL);
-
 /**
  * Default timeout for requests (60 seconds)
  */

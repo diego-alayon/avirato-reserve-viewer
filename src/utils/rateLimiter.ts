@@ -99,7 +99,6 @@ export class RateLimiter {
    */
   reset(): void {
     this.requestTimestamps = [];
-    console.log('[RateLimiter] Reset complete');
   }
 
   /**
@@ -150,15 +149,7 @@ export class RateLimiter {
    * Log current status (for debugging)
    */
   logStatus(): void {
-    const status = this.getStatus();
-    console.log('[RateLimiter] Status:', {
-      requests_10min: `${status.requestsLast10Min}/${this.config.maxRequestsPer10Min}`,
-      requests_per_sec: `${status.requestsLastSecond}/${this.config.maxRequestsPerSecond}`,
-      available_10min: status.available10Min,
-      available_per_sec: status.availablePerSecond,
-      can_request_now: this.canMakeRequest(),
-      estimated_wait: `${this.getEstimatedWaitTime()}ms`
-    });
+    // Method kept for backward compatibility but does nothing in production
   }
 }
 

@@ -90,10 +90,8 @@ const getPaymentIcon = (paymentType: string) => {
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text);
-    // You could add a toast notification here
-    console.log("Link copiado al portapapeles");
   } catch (err) {
-    console.error("Error al copiar al portapapeles:", err);
+    // Silent fail
   }
 };
 
@@ -230,13 +228,6 @@ const Reservations = () => {
       const expandedEnd = new Date(dateRange.to);
       expandedEnd.setDate(expandedEnd.getDate() + 60);
 
-      console.log('🔍 DEBUG - Date Range Selected:', {
-        originalFrom: dateRange.from,
-        originalTo: dateRange.to,
-        expandedStart,
-        expandedEnd
-      });
-
       fetchReservations(expandedStart, expandedEnd);
     } else {
       const defaultEnd = new Date();
@@ -314,23 +305,6 @@ const Reservations = () => {
       const checkOutInRange =
         checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
       const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
-
-      // Log for debugging 2026 dates
-      if (cyear === 2026 || oyear === 2026) {
-        console.log('🔍 DEBUG - 2026 Reservation Found:', {
-          reservationId: reservation.reservation_id || reservation.reservationId,
-          checkInStr,
-          checkOutStr,
-          checkInDate,
-          checkOutDate,
-          rangeStart,
-          rangeEnd,
-          checkInInRange,
-          checkOutInRange,
-          isActive,
-          passes: checkInInRange || checkOutInRange || isActive
-        });
-      }
 
       return checkInInRange || checkOutInRange || isActive;
     }
@@ -856,16 +830,6 @@ const Reservations = () => {
                   const hasBillingLines =
                     reservation.billing_lines &&
                     reservation.billing_lines.length > 0;
-
-                  // Debug para reserva 1567
-                  if (reservationId === 1567) {
-                    console.log("🔍 Reservation 1567 render:", {
-                      id: reservationId,
-                      billing_lines: reservation.billing_lines,
-                      hasBillingLines,
-                      client: clientName,
-                    });
-                  }
 
                   return (
                     <Fragment key={reservationId}>
