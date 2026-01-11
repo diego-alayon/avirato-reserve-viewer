@@ -1,0 +1,25 @@
+{
+  "name": "last-app-api",
+  "version": "1.0.0",
+  "type": "assistant",
+  "description": "Interactive assistant for last.app API v2.0.0 integration",
+  "triggers": ["@last-app", "/last-app"],
+  "context": {
+    "docs": "./docs/**/*.md",
+    "examples": "./examples/**/*.ts"
+  },
+  "capabilities": [
+    "answer_questions",
+    "provide_examples",
+    "guide_implementation",
+    "debug_errors"
+  ],
+  "metadata": {
+    "api_version": "2.0.0",
+    "base_url": "https://api.last.shop",
+    "rate_limits": {
+      "per_10_minutes": 1500,
+      "per_second_per_entity": 15
+    }
+  }
+}

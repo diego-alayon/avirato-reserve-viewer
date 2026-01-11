@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
         secure: false,
+      },
+      '/lastapp': {
+        target: 'https://api.last.app',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/lastapp/, ''),
+        secure: false,
       }
     }
   },

@@ -10,6 +10,8 @@ import Reservations from "./pages/Reservations";
 import Restaurant from "./pages/Restaurant";
 import Codes from "./pages/Codes";
 import Messaging from "./pages/Messaging";
+import Sync from "./pages/Sync";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +29,8 @@ const App = () => (
           <Route path="/restaurant" element={<DashboardLayout><Restaurant /></DashboardLayout>} />
           <Route path="/codes" element={<DashboardLayout><Codes /></DashboardLayout>} />
           <Route path="/messaging" element={<DashboardLayout><Messaging /></DashboardLayout>} />
+          <Route path="/sync" element={<DashboardLayout><Sync /></DashboardLayout>} />
+          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -25,6 +25,8 @@ const getBreadcrumbs = (pathname: string) => {
     "/restaurant": "Restaurante",
     "/codes": "Códigos",
     "/messaging": "Mensajería",
+    "/sync": "Sincronización",
+    "/settings": "Configuración",
   }
   return routes[pathname] || "Dashboard"
 }
