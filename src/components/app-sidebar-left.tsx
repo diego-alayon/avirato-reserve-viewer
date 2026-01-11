@@ -1,4 +1,4 @@
-import { Calendar, MessageSquare, Code, UtensilsCrossed, ChevronUp, User2 } from "lucide-react"
+import { Calendar, MessageSquare, Code, UtensilsCrossed, ChevronUp, User2, RefreshCw } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +38,11 @@ const menuItems = [
     title: "Mensajería",
     url: "/messaging",
     icon: MessageSquare,
+  },
+  {
+    title: "Sincronización",
+    url: "/sync",
+    icon: RefreshCw,
   },
 ]
 
@@ -85,7 +90,7 @@ export function AppSidebarLeft() {
                 <DropdownMenuItem>
                   <span>Perfil</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <span>Configuración</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/login")}>
