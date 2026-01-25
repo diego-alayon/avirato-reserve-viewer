@@ -33,7 +33,6 @@ export const useAvirato = () => {
         throw new Error('Authentication failed');
       }
     } catch (error) {
-      console.error('Authentication error:', error);
       toast({
         title: "Error de autenticación",
         description: error instanceof Error ? error.message : "Error desconocido",
@@ -63,8 +62,6 @@ export const useAvirato = () => {
         // Flatten the nested arrays to get all reservations
         const allReservations = response.data.flat();
 
-        console.log('Reservations data:', allReservations);
-        console.log('First reservation:', allReservations[0]);
         setReservations(allReservations);
         toast({
           title: "Reservas cargadas",
@@ -74,8 +71,6 @@ export const useAvirato = () => {
         throw new Error('Failed to fetch reservations');
       }
     } catch (error) {
-      console.error('Reservations fetch error:', error);
-      
       if (error instanceof Error && error.message.includes('Token expired')) {
         setIsAuthenticated(false);
         aviratoService.clearToken();

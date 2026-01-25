@@ -64,12 +64,6 @@ export class CustomerSyncService {
     };
 
     try {
-      console.log('%c🔄 INICIANDO SINCRONIZACIÓN', 'background: #4CAF50; color: white; font-weight: bold; padding: 5px 10px; border-radius: 3px;');
-      console.log('📅 Rango de fechas:', {
-        desde: startDate.toLocaleDateString(),
-        hasta: endDate.toLocaleDateString()
-      });
-
       logger.info('[Sync] Starting customer synchronization', {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
@@ -80,16 +74,12 @@ export class CustomerSyncService {
       const response = await aviratoService.getReservations(startDate, endDate);
       const reservations = response.data.flat();
 
-      console.log(`📋 Total reservas obtenidas de Avirato: ${reservations.length}`);
       logger.debug(`[Sync] Retrieved ${reservations.length} reservations from Avirato`);
 
       // 2. Extract unique customers
       onProgress?.(30, `Procesando ${reservations.length} reservas...`);
       const uniqueCustomers = this.extractUniqueCustomers(reservations);
       result.itemsProcessed = uniqueCustomers.size;
-
-      console.log(`👥 Clientes únicos encontrados: ${uniqueCustomers.size}`);
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
 
       logger.info(`[Sync] Found ${uniqueCustomers.size} unique customers to sync`);
 
@@ -110,12 +100,6 @@ export class CustomerSyncService {
             const created = await this.createCustomerWithRetry(customerData);
             result.itemsSucceeded++;
 
-            console.log(`✅ CREADO: ${customerName}`, {
-              teléfono: phone,
-              email: aviratoClient.email || 'Sin email',
-              id_lastapp: created.id
-            });
-
             syncedCustomers.push({
               name: customerName,
               phone: phone,
@@ -134,10 +118,6 @@ export class CustomerSyncService {
             if (this.isDuplicateError(createError)) {
               // Customer already exists, mark as success
               result.itemsSucceeded++;
-
-              console.log(`⏭️  YA EXISTE: ${customerName}`, {
-                teléfono: phone
-              });
 
               syncedCustomers.push({
                 name: customerName,
@@ -169,10 +149,6 @@ export class CustomerSyncService {
           result.errors.push(syncError);
 
           const customerName = `${aviratoClient.name || ''} ${aviratoClient.surname || ''}`.trim();
-          console.error(`❌ ERROR: ${customerName}`, {
-            teléfono: phone,
-            error: error.message
-          });
 
           failedCustomers.push({
             name: customerName,
@@ -195,37 +171,6 @@ export class CustomerSyncService {
       localStorage.setItem('last_sync_time', this.lastSyncTime.toISOString());
 
       onProgress?.(100, 'Sincronización completada');
-
-      // Print summary
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
-      console.log('%c📊 RESUMEN DE SINCRONIZACIÓN', 'background: #2196F3; color: white; font-weight: bold; padding: 5px 10px; border-radius: 3px;');
-      console.log('⏱️  Duración:', `${(result.duration / 1000).toFixed(2)}s`);
-      console.log('📊 Total procesados:', result.itemsProcessed);
-      console.log('✅ Exitosos:', result.itemsSucceeded);
-      console.log('❌ Fallidos:', result.itemsFailed);
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
-
-      // Show synced customers table
-      if (syncedCustomers.length > 0) {
-        console.log('%c✅ CLIENTES SINCRONIZADOS:', 'background: #4CAF50; color: white; font-weight: bold; padding: 3px 8px;');
-        console.table(syncedCustomers);
-      }
-
-      // Show failed customers table
-      if (failedCustomers.length > 0) {
-        console.log('%c❌ CLIENTES CON ERROR:', 'background: #f44336; color: white; font-weight: bold; padding: 3px 8px;');
-        console.table(failedCustomers);
-      }
-
-      // Final message
-      if (result.itemsFailed === 0) {
-        console.log('%c🎉 SINCRONIZACIÓN EXITOSA - Todos los clientes fueron sincronizados correctamente', 'background: #4CAF50; color: white; font-weight: bold; padding: 8px 12px; border-radius: 5px; font-size: 14px;');
-      } else if (result.itemsSucceeded > 0 && result.itemsFailed > 0) {
-        console.log('%c⚠️  SINCRONIZACIÓN PARCIAL - Algunos clientes no pudieron sincronizarse', 'background: #FF9800; color: white; font-weight: bold; padding: 8px 12px; border-radius: 5px; font-size: 14px;');
-      } else {
-        console.log('%c❌ SINCRONIZACIÓN FALLIDA - No se pudo sincronizar ningún cliente', 'background: #f44336; color: white; font-weight: bold; padding: 8px 12px; border-radius: 5px; font-size: 14px;');
-      }
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
 
       logger.info('[Sync] Synchronization completed', {
         processed: result.itemsProcessed,
@@ -251,12 +196,6 @@ export class CustomerSyncService {
       result.status = 'failed';
       result.endTime = new Date();
       result.duration = result.endTime ? result.endTime.getTime() - result.startTime.getTime() : 0;
-
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
-      console.log('%c💥 ERROR CRÍTICO EN LA SINCRONIZACIÓN', 'background: #f44336; color: white; font-weight: bold; padding: 8px 12px; border-radius: 5px; font-size: 14px;');
-      console.error('Error:', error.message);
-      console.error('Stack:', error.stack);
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #999;');
 
       logger.error('[Sync] Synchronization failed:', error);
 

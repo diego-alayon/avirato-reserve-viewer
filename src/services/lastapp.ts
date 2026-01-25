@@ -53,9 +53,6 @@ import type {
  */
 const API_BASE_URL = '/lastapp/v2';
 
-// Debug: Log API URL on module load
-console.log('🔧 [LastApp Module] API_BASE_URL =', API_BASE_URL);
-
 /**
  * Default timeout for requests (60 seconds)
  */
@@ -80,9 +77,6 @@ export class LastAppService {
 
     // Load credentials from environment variables (SECURE)
     this.loadFromEnvironment();
-
-    // Log API base URL for debugging
-    logger.debug(`[LastApp] API Base URL: ${API_BASE_URL}`);
   }
 
   // ==========================================================================
@@ -361,7 +355,6 @@ export class LastAppService {
       const envToken = import.meta.env.VITE_LASTAPP_TOKEN;
       if (envToken && envToken.trim() !== '') {
         this.token = envToken.trim();
-        logger.info('[LastApp] Token loaded from environment variables');
       } else {
         logger.warn('[LastApp] No token found in environment variables (VITE_LASTAPP_TOKEN)');
       }
@@ -370,22 +363,13 @@ export class LastAppService {
       const envOrgId = import.meta.env.VITE_LASTAPP_ORGANIZATION_ID;
       if (envOrgId && envOrgId.trim() !== '') {
         this.organizationId = envOrgId.trim();
-        logger.debug('[LastApp] Organization ID loaded from environment');
       }
 
       // Load location ID
       const envLocId = import.meta.env.VITE_LASTAPP_LOCATION_ID;
       if (envLocId && envLocId.trim() !== '') {
         this.locationId = envLocId.trim();
-        logger.debug('[LastApp] Location ID loaded from environment');
       }
-
-      // Log configuration status
-      logger.info('[LastApp] Configuration loaded:', {
-        hasToken: !!this.token,
-        hasOrganization: !!this.organizationId,
-        hasLocation: !!this.locationId
-      });
     } catch (error) {
       logger.error('[LastApp] Failed to load environment variables:', error);
     }
