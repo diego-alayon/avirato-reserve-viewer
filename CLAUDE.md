@@ -28,7 +28,23 @@ Tipos válidos: feat, fix, docs, style, refactor, test, chore
 - `npm run dev` - Servidor de desarrollo (puerto 8080)
 - `npm run build` - Build de producción
 - `npm run lint` - Linting
+- `vercel --prod --yes` - Desplegar a producción en Vercel
+
+## Despliegue en Vercel
+
+**URL de producción:** https://avirato-reserve-viewer.vercel.app
+
+Para desplegar, consultar la documentación completa en: `docs/VERCEL_DEPLOYMENT.md`
+
+### Checklist rápido de despliegue:
+1. Verificar build local: `npm run build`
+2. Commit y push a rama `vercel-build-production`
+3. Vercel despliega automáticamente
+
+### Archivos clave:
+- `vercel.json` - Configuración de build y rewrites
+- `.vercelignore` - Archivos a excluir del upload
 
 ## Contexto del proyecto
 
-Este es un dashboard de gestión de reservas hoteleras integrado con Avirato PMS.
+Este es un dashboard de gestión de reservas hoteleras integrado con Avirato PMS y Last.app.
