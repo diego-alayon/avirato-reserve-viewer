@@ -1095,50 +1095,27 @@ const Reservations = () => {
                           <TableCell
                             title={reservation.payment_link || "No disponible"}
                           >
-                            <div className="flex items-center gap-1">
-                              {reservation.payment_link ? (
-                                <>
-                                  <button
-                                    onClick={() =>
-                                      openWhatsApp(
-                                        reservation.client?.phone || "",
-                                        `Hola ${reservation.client?.name || ""}, aquí está tu link de pago: ${reservation.payment_link}`,
-                                      )
-                                    }
-                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                                    title="Enviar por WhatsApp"
-                                    disabled={!reservation.client?.phone}
-                                  >
-                                    <MessageCircle className="h-3 w-3 text-green-600" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      copyToClipboard(
-                                        reservation.payment_link || "",
-                                      )
-                                    }
-                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                                    title="Copiar link"
-                                  >
-                                    <Copy className="h-3 w-3 text-gray-600" />
-                                  </button>
-                                  <a
-                                    href={reservation.payment_link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-green-600 hover:text-green-800 hover:underline flex items-center gap-1 text-sm truncate max-w-[200px]"
-                                    title={reservation.payment_link}
-                                  >
-                                    <span className="truncate">Link de pago</span>
-                                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                                  </a>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground text-sm whitespace-nowrap">
-                                  No disponible
-                                </span>
-                              )}
-                            </div>
+                            {reservation.payment_link ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  openWhatsApp(
+                                    reservation.client?.phone || "",
+                                    `Hola ${reservation.client?.name || ""}, aquí está tu link de pago: ${reservation.payment_link}`,
+                                  )
+                                }
+                                title="Enviar link de pago por WhatsApp"
+                                disabled={!reservation.client?.phone}
+                                className="h-6 px-2.5 py-0.5 text-xs"
+                              >
+                                WhatsApp
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-sm whitespace-nowrap">
+                                No disponible
+                              </span>
+                            )}
                           </TableCell>
                         )}
                         {visibleColumns.extras && (
