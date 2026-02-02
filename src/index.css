@@ -9,26 +9,26 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 210 20% 98%;
-    --foreground: 240 5.9% 10%;
+    --foreground: 240 5.3% 26.1%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 5.9% 10%;
+    --card-foreground: 240 5.3% 26.1%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 5.9% 10%;
+    --popover-foreground: 240 5.3% 26.1%;
 
     --primary: 142 76% 36%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 142 76% 50%;
 
     --secondary: 220 14% 96%;
-    --secondary-foreground: 220 9% 46%;
+    --secondary-foreground: 240 5.3% 26.1%;
 
     --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted-foreground: 240 5.3% 26.1%;
 
     --accent: 220 14% 96%;
-    --accent-foreground: 220 9% 46%;
+    --accent-foreground: 240 5.3% 26.1%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 20% 98%;
@@ -57,7 +57,7 @@ All colors MUST be HSL.
 
     --sidebar-accent: 240 4.8% 95.9%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 240 5.3% 26.1%;
 
     --sidebar-border: 220 13% 91%;
 
@@ -105,9 +105,9 @@ All colors MUST be HSL.
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 142 72% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 240 5.3% 26.1%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-border: 240 5.3% 26.1%;
     --sidebar-ring: 142 72% 45%;
   }
 }
@@ -131,5 +131,41 @@ All colors MUST be HSL.
   table tbody td {
     padding-top: 0.25rem !important;
     padding-bottom: 0.25rem !important;
+  }
+
+  /* Color de texto específico para tablas */
+  table,
+  table thead,
+  table tbody,
+  table th,
+  table td,
+  table tr {
+    color: hsl(240 5.3% 26.1%) !important;
+  }
+
+  /* Asegurar que los encabezados también usen el color correcto */
+  table thead th {
+    color: hsl(240 5.3% 26.1%) !important;
+  }
+
+  /* Color de fondo del header de la tabla (permanente, sin hover) */
+  table thead,
+  table thead tr,
+  table thead th,
+  table thead:hover,
+  table thead tr:hover,
+  table thead th:hover {
+    background-color: hsl(240 4.8% 95.9%) !important;
+  }
+
+  /* Líneas verticales entre columnas */
+  table th,
+  table td {
+    border-right: 1px solid hsl(var(--border));
+  }
+
+  table th:last-child,
+  table td:last-child {
+    border-right: none;
   }
 }
