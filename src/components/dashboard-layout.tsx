@@ -34,7 +34,7 @@ const getBreadcrumbs = (pathname: string) => {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
   const currentPage = getBreadcrumbs(location.pathname)
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
 
   return (
