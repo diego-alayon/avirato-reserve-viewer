@@ -1,4 +1,4 @@
-import { Calendar, MessageSquare, Code, UtensilsCrossed, ChevronUp, User2, RefreshCw } from "lucide-react"
+import { Calendar, CalendarDays, MessageSquare, Code, UtensilsCrossed, ChevronUp, User2, RefreshCw } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +23,11 @@ const menuItems = [
     title: "Reservas",
     url: "/reservations",
     icon: Calendar,
+  },
+  {
+    title: "Calendario",
+    url: "/calendar",
+    icon: CalendarDays,
   },
   {
     title: "Restaurante",

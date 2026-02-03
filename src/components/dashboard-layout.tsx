@@ -22,6 +22,7 @@ interface DashboardLayoutProps {
 const getBreadcrumbs = (pathname: string) => {
   const routes: Record<string, string> = {
     "/reservations": "Reservas",
+    "/calendar": "Calendario",
     "/restaurant": "Restaurante",
     "/codes": "Códigos",
     "/messaging": "Mensajería",

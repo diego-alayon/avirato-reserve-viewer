@@ -12,6 +12,7 @@ import Codes from "./pages/Codes";
 import Messaging from "./pages/Messaging";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
+import CalendarBooking from "./pages/CalendarBooking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/reservations" element={<DashboardLayout><Reservations /></DashboardLayout>} />
+          <Route path="/calendar" element={<DashboardLayout><CalendarBooking /></DashboardLayout>} />
           <Route path="/restaurant" element={<DashboardLayout><Restaurant /></DashboardLayout>} />
           <Route path="/codes" element={<DashboardLayout><Codes /></DashboardLayout>} />
           <Route path="/messaging" element={<DashboardLayout><Messaging /></DashboardLayout>} />
