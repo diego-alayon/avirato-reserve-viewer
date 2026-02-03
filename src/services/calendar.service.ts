@@ -53,23 +53,21 @@ interface ReservationsResponse {
   };
 }
 
-// Rate types
-export interface RateDayPrice {
-  date: string;
-  price: number;
-  min_nights?: number;
-}
+// Price types - Map of date -> space_subtype_id -> price
+export type PriceMap = Map<string, Map<number, number>>;
 
-export interface CalendarRate {
-  rate_id: number;
-  rate_name: string;
-  space_subtype_id: number;
-  prices: RateDayPrice[];
-}
-
-interface RateResponse {
+interface PriceResponse {
   status: string;
-  data: any[];
+  data: Array<{
+    day: string;
+    space_subtypes: Array<{
+      space_subtype_id: number;
+      rates: Array<{
+        rate_id: number;
+        price: number;
+      }>;
+    }>;
+  }>;
 }
 
 // Use proxy in development to avoid CORS issues
@@ -168,7 +166,11 @@ class CalendarService {
     return spaces;
   }
 
-  async fetchRates(): Promise<CalendarRate[]> {
+  async fetchPrices(
+    spaceSubtypeIds: number[],
+    startDate: Date,
+    endDate: Date
+  ): Promise<PriceMap> {
     const token = this.getToken();
     const webCode = this.getWebCode();
 
@@ -176,15 +178,31 @@ class CalendarService {
       throw new Error('Not authenticated');
     }
 
-    const url = `${API_BASE_URL}/v3/rate?web_code=${webCode}`;
+    if (spaceSubtypeIds.length === 0) {
+      return new Map();
+    }
+
+    // Get unique subtype IDs
+    const uniqueSubtypeIds = [...new Set(spaceSubtypeIds)];
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+
+    const url = `${API_BASE_URL}/v3/price?web_code=${webCode}`;
 
     const response = await fetch(url, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      body: JSON.stringify({
+        start_date: startDateStr,
+        end_date: endDateStr,
+        spaceSubtypeIds: uniqueSubtypeIds,
+        rateIds: [2], // Use default rate "Tarifa predeterminada"
+      }),
     });
 
     if (!response.ok) {
@@ -192,27 +210,33 @@ class CalendarService {
         this.clearAuth();
         throw new Error('Token expirado. Por favor, inicia sesión de nuevo.');
       }
-      throw new Error(`Failed to fetch rates: ${response.status}`);
+      throw new Error(`Failed to fetch prices: ${response.status}`);
     }
 
-    const data: RateResponse = await response.json();
+    const data: PriceResponse = await response.json();
 
     if (data.status !== 'success' || !data.data) {
-      throw new Error('Invalid response from rates API');
+      throw new Error('Invalid response from prices API');
     }
 
-    // Log the raw response to understand the structure
-    console.log('[CalendarService] Raw rates response:', JSON.stringify(data.data, null, 2));
+    // Build price map: date -> space_subtype_id -> price
+    const priceMap: PriceMap = new Map();
 
-    // Map the rates to our simplified structure
-    const rates: CalendarRate[] = data.data.map((rate: any) => ({
-      rate_id: rate.rate_id || rate.rateId,
-      rate_name: rate.rate_name || rate.rateName || rate.name || '',
-      space_subtype_id: rate.space_subtype_id || rate.spaceSubtypeId || 0,
-      prices: rate.prices || rate.days || [],
-    }));
+    for (const dayData of data.data) {
+      const dateMap = new Map<number, number>();
 
-    return rates;
+      for (const subtypeData of dayData.space_subtypes) {
+        // Get price from the first rate (should be rate_id 2)
+        const ratePrice = subtypeData.rates.find(r => r.rate_id === 2);
+        if (ratePrice) {
+          dateMap.set(subtypeData.space_subtype_id, ratePrice.price);
+        }
+      }
+
+      priceMap.set(dayData.day, dateMap);
+    }
+
+    return priceMap;
   }
 
   async fetchReservations(startDate: Date, endDate: Date): Promise<CalendarReservation[]> {

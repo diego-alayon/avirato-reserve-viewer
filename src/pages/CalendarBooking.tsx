@@ -30,7 +30,7 @@ import {
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useCalendar } from "@/hooks/useCalendar";
-import type { CalendarSpace, CalendarReservation, CalendarRate } from "@/services/calendar.service";
+import type { CalendarSpace, CalendarReservation, PriceMap } from "@/services/calendar.service";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Day names in Spanish (abbreviated)
@@ -66,14 +66,14 @@ const CalendarBooking = () => {
   const {
     spaces,
     reservations,
-    rates,
+    prices,
     isLoadingSpaces,
     isLoadingReservations,
-    isLoadingRates,
+    isLoadingPrices,
     isAuthenticated,
     error,
     loadSpaces,
-    loadRates,
+    loadPrices,
     loadReservationsForDateRange,
     clearError,
   } = useCalendar();
@@ -106,12 +106,12 @@ const CalendarBooking = () => {
     }
   }, [isAuthenticated]); // Minimal dependencies - only run when auth changes
 
-  // Load rates on mount (only once)
+  // Load prices when spaces are loaded or month changes
   useEffect(() => {
-    if (isAuthenticated && rates.length === 0 && !isLoadingRates) {
-      loadRates();
+    if (isAuthenticated && spaces.length > 0 && !isLoadingPrices) {
+      loadPrices(viewStartDate, viewEndDate);
     }
-  }, [isAuthenticated]); // Minimal dependencies - only run when auth changes
+  }, [isAuthenticated, spaces.length, selectedMonth, selectedYear]); // Load when month/year changes
 
   // Load reservations when month/year changes
   useEffect(() => {
@@ -221,17 +221,6 @@ const CalendarBooking = () => {
     [viewEndDate]
   );
 
-  // Create a map of rates by space_subtype_id for quick lookup
-  const ratesBySubtype = useMemo(() => {
-    const map = new Map<number, CalendarRate>();
-    rates.forEach((rate) => {
-      if (rate.space_subtype_id) {
-        map.set(rate.space_subtype_id, rate);
-      }
-    });
-    return map;
-  }, [rates]);
-
   // Create a map of space_id to space_subtype_id
   const spaceSubtypeMap = useMemo(() => {
     const map = new Map<number, number>();
@@ -246,21 +235,21 @@ const CalendarBooking = () => {
     const subtypeId = spaceSubtypeMap.get(spaceId);
     if (!subtypeId) return '-';
 
-    // Get the rate for this subtype
-    const rate = ratesBySubtype.get(subtypeId);
-    if (!rate || !rate.prices || rate.prices.length === 0) return '-';
-
     // Format the day as YYYY-MM-DD to match API format
     const dayStr = format(day, 'yyyy-MM-dd');
 
-    // Find the price for this specific day
-    const dayPrice = rate.prices.find((p) => p.date === dayStr);
-    if (dayPrice && dayPrice.price > 0) {
-      return `${dayPrice.price}€`;
+    // Get prices for this day
+    const dayPrices = prices.get(dayStr);
+    if (!dayPrices) return '-';
+
+    // Get price for this space's subtype
+    const price = dayPrices.get(subtypeId);
+    if (price && price > 0) {
+      return `${price}€`;
     }
 
     return '-';
-  }, [spaceSubtypeMap, ratesBySubtype]);
+  }, [spaceSubtypeMap, prices]);
 
   const getChannelBadge = useCallback((channel: string): string => {
     const lowerChannel = channel.toLowerCase();
@@ -282,7 +271,7 @@ const CalendarBooking = () => {
     loadReservationsForDateRange(fetchStart, fetchEnd);
   }, [clearError, selectedMonth, selectedYear, loadReservationsForDateRange]);
 
-  const isLoading = isLoadingSpaces || isLoadingReservations || isLoadingRates;
+  const isLoading = isLoadingSpaces || isLoadingReservations || isLoadingPrices;
 
   const monthOptions = useMemo(() => {
     return [-2, -1, 0, 1, 2, 3, 4, 5].map((offset) => {

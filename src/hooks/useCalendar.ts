@@ -8,20 +8,20 @@ import {
   calendarService,
   type CalendarSpace,
   type CalendarReservation,
-  type CalendarRate,
+  type PriceMap,
 } from '@/services/calendar.service';
 
 interface UseCalendarReturn {
   spaces: CalendarSpace[];
   reservations: CalendarReservation[];
-  rates: CalendarRate[];
+  prices: PriceMap;
   isLoadingSpaces: boolean;
   isLoadingReservations: boolean;
-  isLoadingRates: boolean;
+  isLoadingPrices: boolean;
   isAuthenticated: boolean;
   error: string | null;
   loadSpaces: () => Promise<void>;
-  loadRates: () => Promise<void>;
+  loadPrices: (startDate: Date, endDate: Date) => Promise<void>;
   loadReservationsForDateRange: (startDate: Date, endDate: Date) => void;
   clearError: () => void;
 }
@@ -29,10 +29,10 @@ interface UseCalendarReturn {
 export const useCalendar = (): UseCalendarReturn => {
   const [spaces, setSpaces] = useState<CalendarSpace[]>([]);
   const [reservations, setReservations] = useState<CalendarReservation[]>([]);
-  const [rates, setRates] = useState<CalendarRate[]>([]);
+  const [prices, setPrices] = useState<PriceMap>(new Map());
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
-  const [isLoadingRates, setIsLoadingRates] = useState(false);
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authState, setAuthState] = useState(() => calendarService.isAuthenticated());
 
@@ -86,33 +86,30 @@ export const useCalendar = (): UseCalendarReturn => {
     }
   }, [isAuthenticated, spaces.length]);
 
-  const loadRates = useCallback(async () => {
-    if (!isAuthenticated) {
+  const loadPrices = useCallback(async (startDate: Date, endDate: Date) => {
+    if (!isAuthenticated || spaces.length === 0) {
       return;
     }
 
-    // Don't reload if we already have rates
-    if (rates.length > 0) {
-      return;
-    }
-
-    setIsLoadingRates(true);
+    setIsLoadingPrices(true);
 
     try {
-      const ratesData = await calendarService.fetchRates();
-      setRates(ratesData);
+      // Get unique space subtype IDs from loaded spaces
+      const spaceSubtypeIds = [...new Set(spaces.map(s => s.space_subtype_id))];
+      const pricesData = await calendarService.fetchPrices(spaceSubtypeIds, startDate, endDate);
+      setPrices(pricesData);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error al cargar tarifas';
+      const message = err instanceof Error ? err.message : 'Error al cargar precios';
       // Check if token expired
       if (message.includes('Token expirado') || message.includes('401')) {
         setAuthState(false);
       }
-      console.error('Error loading rates:', err);
-      // Don't set error for rates - it's not critical
+      console.error('Error loading prices:', err);
+      // Don't set error for prices - it's not critical
     } finally {
-      setIsLoadingRates(false);
+      setIsLoadingPrices(false);
     }
-  }, [isAuthenticated, rates.length]);
+  }, [isAuthenticated, spaces]);
 
   // This function schedules a debounced fetch
   const loadReservationsForDateRange = useCallback((startDate: Date, endDate: Date) => {
@@ -173,14 +170,14 @@ export const useCalendar = (): UseCalendarReturn => {
   return {
     spaces,
     reservations,
-    rates,
+    prices,
     isLoadingSpaces,
     isLoadingReservations,
-    isLoadingRates,
+    isLoadingPrices,
     isAuthenticated,
     error,
     loadSpaces,
-    loadRates,
+    loadPrices,
     loadReservationsForDateRange,
     clearError,
   };
