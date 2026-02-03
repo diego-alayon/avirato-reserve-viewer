@@ -28,13 +28,15 @@ export const useCalendar = (): UseCalendarReturn => {
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authState, setAuthState] = useState(() => calendarService.isAuthenticated());
 
   // Refs for debounce control
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastFetchKeyRef = useRef<string>('');
 
-  const isAuthenticated = calendarService.isAuthenticated();
+  // Check auth state on mount and when localStorage changes
+  const isAuthenticated = authState && calendarService.isAuthenticated();
 
   // Cleanup on unmount
   useEffect(() => {
@@ -68,6 +70,10 @@ export const useCalendar = (): UseCalendarReturn => {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cargar villas';
       setError(message);
+      // Check if token expired
+      if (message.includes('Token expirado') || message.includes('401')) {
+        setAuthState(false);
+      }
       console.error('Error loading spaces:', err);
     } finally {
       setIsLoadingSpaces(false);
@@ -115,6 +121,10 @@ export const useCalendar = (): UseCalendarReturn => {
         }
         const message = err instanceof Error ? err.message : 'Error al cargar reservas';
         setError(message);
+        // Check if token expired
+        if (message.includes('Token expirado') || message.includes('401')) {
+          setAuthState(false);
+        }
         console.error('Error loading reservations:', err);
       } finally {
         setIsLoadingReservations(false);

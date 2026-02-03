@@ -82,6 +82,12 @@ class CalendarService {
     return expiry > new Date();
   }
 
+  clearAuth(): void {
+    localStorage.removeItem('avirato_token');
+    localStorage.removeItem('avirato_web_codes');
+    localStorage.removeItem('avirato_token_expiry');
+  }
+
   async fetchSpaces(): Promise<CalendarSpace[]> {
     const token = this.getToken();
     const webCode = this.getWebCode();
@@ -101,6 +107,11 @@ class CalendarService {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired - clear localStorage and throw specific error
+        this.clearAuth();
+        throw new Error('Token expirado. Por favor, inicia sesión de nuevo.');
+      }
       throw new Error(`Failed to fetch spaces: ${response.status}`);
     }
 
@@ -177,6 +188,11 @@ class CalendarService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired - clear localStorage and throw specific error
+          this.clearAuth();
+          throw new Error('Token expirado. Por favor, inicia sesión de nuevo.');
+        }
         if (response.status === 429) {
           // Rate limited - wait and return what we have
           console.warn('Rate limited, returning partial results');
