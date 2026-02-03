@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAvirato } from "@/hooks/useAvirato";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface AppSidebarRightProps {
   open: boolean;
@@ -67,10 +67,10 @@ export function AppSidebarRight({ open, onOpenChange }: AppSidebarRightProps) {
         side="right"
         className="w-[400px] sm:w-[540px] overflow-y-auto"
       >
-        <div className="gap-4 p-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold">Estadísticas</h2>
-          </div>
+        <SheetHeader className="mb-4">
+          <SheetTitle>Estadísticas</SheetTitle>
+        </SheetHeader>
+        <div className="gap-4 p-4 pt-0">
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">

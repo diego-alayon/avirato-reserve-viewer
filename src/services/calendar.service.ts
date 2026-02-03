@@ -157,8 +157,12 @@ class CalendarService {
       throw new Error('Not authenticated');
     }
 
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
+    // Adjust dates like avirato.ts does
+    const adjustedStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const adjustedEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
+
+    const startDateStr = adjustedStart.toISOString().split('T')[0];
+    const endDateStr = adjustedEnd.toISOString().split('T')[0];
 
     const allReservations: CalendarReservation[] = [];
     let hasNextPage = true;
@@ -170,7 +174,7 @@ class CalendarService {
         web_code: webCode.toString(),
         start_date: startDateStr,
         end_date: endDateStr,
-        take: '100',
+        take: '50',
       });
 
       if (cursor) {
@@ -184,6 +188,7 @@ class CalendarService {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
 
