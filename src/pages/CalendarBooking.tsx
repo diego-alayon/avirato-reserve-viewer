@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   addDays,
   startOfMonth,
@@ -71,23 +71,24 @@ const CalendarBooking = () => {
     isAuthenticated,
     error,
     loadSpaces,
-    loadReservations,
+    loadReservationsForDateRange,
     clearError,
   } = useCalendar();
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Calculate view dates - show days from a few days before month start to cover the visible range
+  // Track if initial load has happened
+  const initialLoadDone = useRef(false);
+
+  // Calculate view dates
   const viewStartDate = useMemo(() => {
     const firstOfMonth = startOfMonth(new Date(selectedYear, selectedMonth, 1));
-    // Start from a few days before to show context
     return addDays(firstOfMonth, -2);
   }, [selectedMonth, selectedYear]);
 
   const viewEndDate = useMemo(() => {
     const lastOfMonth = endOfMonth(new Date(selectedYear, selectedMonth, 1));
-    // End a few days after the month
     return addDays(lastOfMonth, 5);
   }, [selectedMonth, selectedYear]);
 
@@ -95,28 +96,30 @@ const CalendarBooking = () => {
     return eachDayOfInterval({ start: viewStartDate, end: viewEndDate });
   }, [viewStartDate, viewEndDate]);
 
-  // Load spaces on mount
+  // Load spaces on mount (only once)
   useEffect(() => {
-    if (isAuthenticated && spaces.length === 0) {
+    if (isAuthenticated && spaces.length === 0 && !isLoadingSpaces) {
       loadSpaces();
     }
-  }, [isAuthenticated, spaces.length, loadSpaces]);
+  }, [isAuthenticated]); // Minimal dependencies - only run when auth changes
 
-  // Load reservations when month changes
+  // Load reservations when month/year changes
   useEffect(() => {
-    if (isAuthenticated) {
-      // Expand the date range to catch reservations that span into/out of the view
-      const fetchStart = addDays(viewStartDate, -30);
-      const fetchEnd = addDays(viewEndDate, 30);
-      loadReservations(fetchStart, fetchEnd);
-    }
-  }, [isAuthenticated, selectedMonth, selectedYear, viewStartDate, viewEndDate, loadReservations]);
+    if (!isAuthenticated) return;
+
+    // Calculate fetch dates based on current selection
+    const firstOfMonth = startOfMonth(new Date(selectedYear, selectedMonth, 1));
+    const lastOfMonth = endOfMonth(new Date(selectedYear, selectedMonth, 1));
+    const fetchStart = addDays(firstOfMonth, -32);
+    const fetchEnd = addDays(lastOfMonth, 35);
+
+    loadReservationsForDateRange(fetchStart, fetchEnd);
+  }, [selectedMonth, selectedYear, isAuthenticated]); // Only these dependencies
 
   // Process reservations into blocks mapped by space_id
   const reservationsBySpaceId = useMemo(() => {
     const map = new Map<number, ReservationBlock[]>();
 
-    // Initialize map with all spaces
     spaces.forEach((space) => {
       map.set(space.space_id, []);
     });
@@ -147,7 +150,7 @@ const CalendarBooking = () => {
     return map;
   }, [reservations, spaces]);
 
-  // Navigation handlers
+  // Navigation handlers - simple state updates only
   const goToPreviousMonth = useCallback(() => {
     const newDate = subMonths(new Date(selectedYear, selectedMonth, 1), 1);
     setSelectedMonth(newDate.getMonth());
@@ -185,7 +188,6 @@ const CalendarBooking = () => {
     [reservationsBySpaceId]
   );
 
-  // Check if this is the start day of a reservation
   const isReservationStart = useCallback(
     (reservation: ReservationBlock, day: Date): boolean => {
       return isSameDay(reservation.checkIn, day);
@@ -193,7 +195,6 @@ const CalendarBooking = () => {
     []
   );
 
-  // Calculate how many days the reservation spans from this day within the visible range
   const getReservationSpan = useCallback(
     (reservation: ReservationBlock, day: Date): number => {
       const endDay = addDays(reservation.checkOut, -1);
@@ -210,7 +211,6 @@ const CalendarBooking = () => {
     [viewEndDate]
   );
 
-  // Get simulated price for a day (when no reservation)
   const getDayPrice = useCallback((spaceId: number, day: Date): string => {
     const dayOfWeek = getDay(day);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -219,7 +219,6 @@ const CalendarBooking = () => {
     return `${price}€`;
   }, []);
 
-  // Get channel badge letter
   const getChannelBadge = useCallback((channel: string): string => {
     const lowerChannel = channel.toLowerCase();
     if (lowerChannel.includes("booking")) return "B";
@@ -227,20 +226,21 @@ const CalendarBooking = () => {
     if (lowerChannel.includes("airbnb")) return "A";
     if (lowerChannel.includes("motor")) return "M";
     if (lowerChannel.includes("vrbo")) return "V";
-    return "D"; // Direct reservations
+    return "D";
   }, []);
 
   const handleRefresh = useCallback(() => {
     clearError();
-    loadSpaces();
-    const fetchStart = addDays(viewStartDate, -30);
-    const fetchEnd = addDays(viewEndDate, 30);
-    loadReservations(fetchStart, fetchEnd);
-  }, [clearError, loadSpaces, loadReservations, viewStartDate, viewEndDate]);
+    // Force reload by updating the fetch
+    const firstOfMonth = startOfMonth(new Date(selectedYear, selectedMonth, 1));
+    const lastOfMonth = endOfMonth(new Date(selectedYear, selectedMonth, 1));
+    const fetchStart = addDays(firstOfMonth, -32);
+    const fetchEnd = addDays(lastOfMonth, 35);
+    loadReservationsForDateRange(fetchStart, fetchEnd);
+  }, [clearError, selectedMonth, selectedYear, loadReservationsForDateRange]);
 
   const isLoading = isLoadingSpaces || isLoadingReservations;
 
-  // Generate month options for selector
   const monthOptions = useMemo(() => {
     return [-2, -1, 0, 1, 2, 3, 4, 5].map((offset) => {
       const date = addMonths(new Date(), offset);
@@ -275,6 +275,7 @@ const CalendarBooking = () => {
           size="icon"
           onClick={goToPreviousMonth}
           className="h-9 w-9"
+          disabled={isLoading}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -282,6 +283,7 @@ const CalendarBooking = () => {
         <Select
           value={`${selectedYear}-${selectedMonth}`}
           onValueChange={handleMonthSelect}
+          disabled={isLoading}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue>
@@ -302,11 +304,17 @@ const CalendarBooking = () => {
           size="icon"
           onClick={goToNextMonth}
           className="h-9 w-9"
+          disabled={isLoading}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
 
-        <Button variant="outline" onClick={goToToday} className="h-9">
+        <Button
+          variant="outline"
+          onClick={goToToday}
+          className="h-9"
+          disabled={isLoading}
+        >
           Hoy
         </Button>
 

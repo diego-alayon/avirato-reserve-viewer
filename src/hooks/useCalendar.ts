@@ -3,7 +3,7 @@
  * This hook is completely separate from useAvirato.ts to avoid conflicts
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   calendarService,
   type CalendarSpace,
@@ -18,7 +18,7 @@ interface UseCalendarReturn {
   isAuthenticated: boolean;
   error: string | null;
   loadSpaces: () => Promise<void>;
-  loadReservations: (startDate: Date, endDate: Date) => Promise<void>;
+  loadReservationsForDateRange: (startDate: Date, endDate: Date) => void;
   clearError: () => void;
 }
 
@@ -29,15 +29,33 @@ export const useCalendar = (): UseCalendarReturn => {
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debounce ref for reservations loading
-  const loadReservationsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastRequestRef = useRef<string | null>(null);
+  // Refs for debounce control
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastFetchKeyRef = useRef<string>('');
 
   const isAuthenticated = calendarService.isAuthenticated();
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const loadSpaces = useCallback(async () => {
     if (!isAuthenticated) {
       setError('No autenticado. Por favor, inicia sesión primero.');
+      return;
+    }
+
+    // Don't reload if we already have spaces
+    if (spaces.length > 0) {
       return;
     }
 
@@ -54,30 +72,36 @@ export const useCalendar = (): UseCalendarReturn => {
     } finally {
       setIsLoadingSpaces(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, spaces.length]);
 
-  const loadReservations = useCallback(async (startDate: Date, endDate: Date) => {
+  // This function schedules a debounced fetch
+  const loadReservationsForDateRange = useCallback((startDate: Date, endDate: Date) => {
     if (!isAuthenticated) {
-      setError('No autenticado. Por favor, inicia sesión primero.');
       return;
     }
 
-    // Create a unique key for this request
-    const requestKey = `${startDate.toISOString()}-${endDate.toISOString()}`;
+    const fetchKey = `${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}`;
 
-    // If same request is already pending, skip
-    if (lastRequestRef.current === requestKey) {
+    // Skip if same request
+    if (fetchKey === lastFetchKeyRef.current && reservations.length > 0) {
       return;
     }
 
-    // Clear any pending debounced request
-    if (loadReservationsTimeoutRef.current) {
-      clearTimeout(loadReservationsTimeoutRef.current);
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
 
-    // Debounce the request by 600ms to avoid 429 errors
-    loadReservationsTimeoutRef.current = setTimeout(async () => {
-      lastRequestRef.current = requestKey;
+    // Cancel previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Set up new debounced request
+    debounceTimerRef.current = setTimeout(async () => {
+      lastFetchKeyRef.current = fetchKey;
+      abortControllerRef.current = new AbortController();
+
       setIsLoadingReservations(true);
       setError(null);
 
@@ -85,15 +109,18 @@ export const useCalendar = (): UseCalendarReturn => {
         const reservationsData = await calendarService.fetchReservations(startDate, endDate);
         setReservations(reservationsData);
       } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         const message = err instanceof Error ? err.message : 'Error al cargar reservas';
         setError(message);
         console.error('Error loading reservations:', err);
       } finally {
         setIsLoadingReservations(false);
-        lastRequestRef.current = null;
       }
-    }, 600);
-  }, [isAuthenticated]);
+    }, 800); // 800ms debounce
+  }, [isAuthenticated, reservations.length]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -107,7 +134,7 @@ export const useCalendar = (): UseCalendarReturn => {
     isAuthenticated,
     error,
     loadSpaces,
-    loadReservations,
+    loadReservationsForDateRange,
     clearError,
   };
 };
