@@ -8,16 +8,20 @@ import {
   calendarService,
   type CalendarSpace,
   type CalendarReservation,
+  type CalendarRate,
 } from '@/services/calendar.service';
 
 interface UseCalendarReturn {
   spaces: CalendarSpace[];
   reservations: CalendarReservation[];
+  rates: CalendarRate[];
   isLoadingSpaces: boolean;
   isLoadingReservations: boolean;
+  isLoadingRates: boolean;
   isAuthenticated: boolean;
   error: string | null;
   loadSpaces: () => Promise<void>;
+  loadRates: () => Promise<void>;
   loadReservationsForDateRange: (startDate: Date, endDate: Date) => void;
   clearError: () => void;
 }
@@ -25,8 +29,10 @@ interface UseCalendarReturn {
 export const useCalendar = (): UseCalendarReturn => {
   const [spaces, setSpaces] = useState<CalendarSpace[]>([]);
   const [reservations, setReservations] = useState<CalendarReservation[]>([]);
+  const [rates, setRates] = useState<CalendarRate[]>([]);
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authState, setAuthState] = useState(() => calendarService.isAuthenticated());
 
@@ -79,6 +85,34 @@ export const useCalendar = (): UseCalendarReturn => {
       setIsLoadingSpaces(false);
     }
   }, [isAuthenticated, spaces.length]);
+
+  const loadRates = useCallback(async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    // Don't reload if we already have rates
+    if (rates.length > 0) {
+      return;
+    }
+
+    setIsLoadingRates(true);
+
+    try {
+      const ratesData = await calendarService.fetchRates();
+      setRates(ratesData);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al cargar tarifas';
+      // Check if token expired
+      if (message.includes('Token expirado') || message.includes('401')) {
+        setAuthState(false);
+      }
+      console.error('Error loading rates:', err);
+      // Don't set error for rates - it's not critical
+    } finally {
+      setIsLoadingRates(false);
+    }
+  }, [isAuthenticated, rates.length]);
 
   // This function schedules a debounced fetch
   const loadReservationsForDateRange = useCallback((startDate: Date, endDate: Date) => {
@@ -139,11 +173,14 @@ export const useCalendar = (): UseCalendarReturn => {
   return {
     spaces,
     reservations,
+    rates,
     isLoadingSpaces,
     isLoadingReservations,
+    isLoadingRates,
     isAuthenticated,
     error,
     loadSpaces,
+    loadRates,
     loadReservationsForDateRange,
     clearError,
   };

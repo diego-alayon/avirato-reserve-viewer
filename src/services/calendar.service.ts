@@ -53,6 +53,25 @@ interface ReservationsResponse {
   };
 }
 
+// Rate types
+export interface RateDayPrice {
+  date: string;
+  price: number;
+  min_nights?: number;
+}
+
+export interface CalendarRate {
+  rate_id: number;
+  rate_name: string;
+  space_subtype_id: number;
+  prices: RateDayPrice[];
+}
+
+interface RateResponse {
+  status: string;
+  data: any[];
+}
+
 // Use proxy in development to avoid CORS issues
 const API_BASE_URL = import.meta.env.DEV ? '/api' : 'https://apiv3.avirato.com';
 
@@ -147,6 +166,53 @@ class CalendarService {
     );
 
     return spaces;
+  }
+
+  async fetchRates(): Promise<CalendarRate[]> {
+    const token = this.getToken();
+    const webCode = this.getWebCode();
+
+    if (!token || !webCode) {
+      throw new Error('Not authenticated');
+    }
+
+    const url = `${API_BASE_URL}/v3/rate?web_code=${webCode}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.clearAuth();
+        throw new Error('Token expirado. Por favor, inicia sesión de nuevo.');
+      }
+      throw new Error(`Failed to fetch rates: ${response.status}`);
+    }
+
+    const data: RateResponse = await response.json();
+
+    if (data.status !== 'success' || !data.data) {
+      throw new Error('Invalid response from rates API');
+    }
+
+    // Log the raw response to understand the structure
+    console.log('[CalendarService] Raw rates response:', JSON.stringify(data.data, null, 2));
+
+    // Map the rates to our simplified structure
+    const rates: CalendarRate[] = data.data.map((rate: any) => ({
+      rate_id: rate.rate_id || rate.rateId,
+      rate_name: rate.rate_name || rate.rateName || rate.name || '',
+      space_subtype_id: rate.space_subtype_id || rate.spaceSubtypeId || 0,
+      prices: rate.prices || rate.days || [],
+    }));
+
+    return rates;
   }
 
   async fetchReservations(startDate: Date, endDate: Date): Promise<CalendarReservation[]> {
