@@ -174,6 +174,7 @@ class CalendarService {
         web_code: webCode.toString(),
         start_date: startDateStr,
         end_date: endDateStr,
+        charges: 'true',
         take: '50',
       });
 
