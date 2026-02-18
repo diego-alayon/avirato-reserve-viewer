@@ -172,6 +172,9 @@ const Reservations = () => {
   // Sorting state for check-in column (descending = most recent first)
   const [checkInSortOrder, setCheckInSortOrder] = useState<"asc" | "desc">("desc");
 
+  // Sorting state for extras column (null = not sorting by extras)
+  const [extrasSortOrder, setExtrasSortOrder] = useState<"asc" | "desc" | null>(null);
+
   // Payment status filter
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<Record<string, boolean>>({
     Pagado: true,
@@ -357,6 +360,15 @@ const Reservations = () => {
       return true;
     })
     .sort((a, b) => {
+      // Sort by extras count if active
+      if (extrasSortOrder) {
+        const extrasA = countExtras(a);
+        const extrasB = countExtras(b);
+        if (extrasA !== extrasB) {
+          return extrasSortOrder === "desc" ? extrasB - extrasA : extrasA - extrasB;
+        }
+      }
+
       // Sort by check-in date
       const checkInA = a.check_in_date || a.checkInDate;
       const checkInB = b.check_in_date || b.checkInDate;
@@ -916,7 +928,38 @@ const Reservations = () => {
                   )}
                   {visibleColumns.numeroExtras && (
                     <TableHead className="text-black font-bold whitespace-nowrap">
-                      Nº Extras
+                      <div className="flex items-center gap-2">
+                        <span>Nº Extras</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            if (extrasSortOrder === null) {
+                              setExtrasSortOrder("desc");
+                            } else if (extrasSortOrder === "desc") {
+                              setExtrasSortOrder("asc");
+                            } else {
+                              setExtrasSortOrder(null);
+                            }
+                          }}
+                          title={
+                            extrasSortOrder === null
+                              ? "Ordenar: más extras primero"
+                              : extrasSortOrder === "desc"
+                                ? "Ordenar: menos extras primero"
+                                : "Quitar ordenamiento por extras"
+                          }
+                        >
+                          {extrasSortOrder === "desc" ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : extrasSortOrder === "asc" ? (
+                            <ArrowUp className="h-3 w-3" />
+                          ) : (
+                            <ArrowDown className="h-3 w-3 opacity-30" />
+                          )}
+                        </Button>
+                      </div>
                     </TableHead>
                   )}
                   {visibleColumns.extras && (
