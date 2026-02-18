@@ -48,6 +48,8 @@ import {
   Phone,
   Settings2,
   Filter,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAvirato } from "@/hooks/useAvirato";
@@ -162,8 +164,18 @@ const Reservations = () => {
     fechaPago: true,
     usuarioPago: true,
     linkPago: true,
+    numeroExtras: true,
     extras: true,
     observaciones: true,
+  });
+
+  // Sorting state for check-in column (descending = most recent first)
+  const [checkInSortOrder, setCheckInSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Payment status filter
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<Record<string, boolean>>({
+    Pagado: true,
+    Pendiente: true,
   });
 
   // Get unique channels from reservations
@@ -254,74 +266,110 @@ const Reservations = () => {
     return text.substring(0, maxLength);
   };
 
-  const filteredReservations = reservations.filter((reservation) => {
-    if (searchTerm?.trim()) {
-      const clientName =
-        reservation.client?.name && reservation.client?.surname
-          ? `${reservation.client.name} ${reservation.client.surname}`
-          : reservation.client_name || reservation.client_id || "";
-
-      const reservationId =
-        (reservation.reservation_id || reservation.reservationId)?.toString() ||
-        "";
-
-      if (!clientName && !reservationId) return false;
-
-      const safeClientName = (clientName || "").toString().toLowerCase();
-      const safeReservationId = (reservationId || "").toString().toLowerCase();
-      const safeSearchTerm = searchTerm.trim().toLowerCase();
-
-      const matchesSearch =
-        safeClientName.includes(safeSearchTerm) ||
-        safeReservationId.includes(safeSearchTerm);
-
-      if (!matchesSearch) return false;
+  // Helper function to count extras
+  const countExtras = (reservation: any): number => {
+    let count = 0;
+    if (reservation.charges && Array.isArray(reservation.charges)) {
+      count += reservation.charges.filter((c: any) => c.type === "extra").length;
     }
-
-    // Filter by channel
-    const operatorName = formatOperatorName(
-      reservation.operator_name || "No disponible"
-    );
-    if (Object.keys(channelFilters).length > 0 && !channelFilters[operatorName]) {
-      return false;
+    if (reservation.predefinedCharges && Array.isArray(reservation.predefinedCharges)) {
+      count += reservation.predefinedCharges.filter((c: any) => c.type === "extra").length;
     }
+    return count;
+  };
 
-    if (dateRange.from && dateRange.to) {
-      const rangeStart = new Date(
-        dateRange.from.getFullYear(),
-        dateRange.from.getMonth(),
-        dateRange.from.getDate(),
+  const filteredReservations = reservations
+    .filter((reservation) => {
+      if (searchTerm?.trim()) {
+        const clientName =
+          reservation.client?.name && reservation.client?.surname
+            ? `${reservation.client.name} ${reservation.client.surname}`
+            : reservation.client_name || reservation.client_id || "";
+
+        const reservationId =
+          (reservation.reservation_id || reservation.reservationId)?.toString() ||
+          "";
+
+        if (!clientName && !reservationId) return false;
+
+        const safeClientName = (clientName || "").toString().toLowerCase();
+        const safeReservationId = (reservationId || "").toString().toLowerCase();
+        const safeSearchTerm = searchTerm.trim().toLowerCase();
+
+        const matchesSearch =
+          safeClientName.includes(safeSearchTerm) ||
+          safeReservationId.includes(safeSearchTerm);
+
+        if (!matchesSearch) return false;
+      }
+
+      // Filter by channel
+      const operatorName = formatOperatorName(
+        reservation.operator_name || "No disponible"
       );
-      const rangeEnd = new Date(
-        dateRange.to.getFullYear(),
-        dateRange.to.getMonth(),
-        dateRange.to.getDate(),
-      );
+      if (Object.keys(channelFilters).length > 0 && !channelFilters[operatorName]) {
+        return false;
+      }
 
-      const checkInStr = reservation.check_in_date || reservation.checkInDate;
-      const checkOutStr =
-        reservation.check_out_date || reservation.checkOutDate;
+      // Filter by payment status
+      const isPaid = reservation.is_fully_paid !== undefined
+        ? reservation.is_fully_paid
+        : reservation.is_paid;
+      const paymentStatusKey = isPaid ? "Pagado" : "Pendiente";
+      if (!paymentStatusFilter[paymentStatusKey]) {
+        return false;
+      }
 
-      const checkInDateStr = checkInStr.split(" ")[0];
-      const checkOutDateStr = checkOutStr.split(" ")[0];
+      if (dateRange.from && dateRange.to) {
+        const rangeStart = new Date(
+          dateRange.from.getFullYear(),
+          dateRange.from.getMonth(),
+          dateRange.from.getDate(),
+        );
+        const rangeEnd = new Date(
+          dateRange.to.getFullYear(),
+          dateRange.to.getMonth(),
+          dateRange.to.getDate(),
+        );
 
-      const [cyear, cmonth, cday] = checkInDateStr.split("-").map(Number);
-      const checkInDate = new Date(cyear, cmonth - 1, cday);
+        const checkInStr = reservation.check_in_date || reservation.checkInDate;
+        const checkOutStr =
+          reservation.check_out_date || reservation.checkOutDate;
 
-      const [oyear, omonth, oday] = checkOutDateStr.split("-").map(Number);
-      const checkOutDate = new Date(oyear, omonth - 1, oday);
+        const checkInDateStr = checkInStr.split(" ")[0];
+        const checkOutDateStr = checkOutStr.split(" ")[0];
 
-      const checkInInRange =
-        checkInDate >= rangeStart && checkInDate <= rangeEnd;
-      const checkOutInRange =
-        checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
-      const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
+        const [cyear, cmonth, cday] = checkInDateStr.split("-").map(Number);
+        const checkInDate = new Date(cyear, cmonth - 1, cday);
 
-      return checkInInRange || checkOutInRange || isActive;
-    }
+        const [oyear, omonth, oday] = checkOutDateStr.split("-").map(Number);
+        const checkOutDate = new Date(oyear, omonth - 1, oday);
 
-    return true;
-  });
+        const checkInInRange =
+          checkInDate >= rangeStart && checkInDate <= rangeEnd;
+        const checkOutInRange =
+          checkOutDate >= rangeStart && checkOutDate <= rangeEnd;
+        const isActive = checkInDate < rangeStart && checkOutDate > rangeEnd;
+
+        return checkInInRange || checkOutInRange || isActive;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by check-in date
+      const checkInA = a.check_in_date || a.checkInDate;
+      const checkInB = b.check_in_date || b.checkInDate;
+
+      const dateA = new Date(checkInA.split(" ")[0]);
+      const dateB = new Date(checkInB.split(" ")[0]);
+
+      if (checkInSortOrder === "desc") {
+        return dateB.getTime() - dateA.getTime(); // Most recent first
+      } else {
+        return dateA.getTime() - dateB.getTime(); // Oldest first
+      }
+    });
 
   return (
     <div className="flex-1 flex-col space-y-4 pt-6">
@@ -580,6 +628,14 @@ const Reservations = () => {
                 Link de Pago
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
+                checked={visibleColumns.numeroExtras}
+                onCheckedChange={(checked) =>
+                  setVisibleColumns({ ...visibleColumns, numeroExtras: checked })
+                }
+              >
+                Número de Extras
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
                 checked={visibleColumns.extras}
                 onCheckedChange={(checked) =>
                   setVisibleColumns({ ...visibleColumns, extras: checked })
@@ -726,7 +782,30 @@ const Reservations = () => {
                   )}
                   {visibleColumns.checkIn && (
                     <TableHead className="text-black font-bold whitespace-nowrap">
-                      Check-in
+                      <div className="flex items-center gap-2">
+                        <span>Check-in</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() =>
+                            setCheckInSortOrder(
+                              checkInSortOrder === "desc" ? "asc" : "desc"
+                            )
+                          }
+                          title={
+                            checkInSortOrder === "desc"
+                              ? "Ordenar: más antiguas primero"
+                              : "Ordenar: más recientes primero"
+                          }
+                        >
+                          {checkInSortOrder === "desc" ? (
+                            <ArrowDown className="h-3 w-3" />
+                          ) : (
+                            <ArrowUp className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
                     </TableHead>
                   )}
                   {visibleColumns.checkOut && (
@@ -756,7 +835,58 @@ const Reservations = () => {
                   )}
                   {visibleColumns.estadoPago && (
                     <TableHead className="text-black font-bold whitespace-nowrap">
-                      Estado de Pago
+                      <div className="flex items-center gap-2">
+                        <span>Estado de Pago</span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                            >
+                              <Filter className="h-3 w-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-[200px]">
+                            <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem
+                              checked={paymentStatusFilter.Pagado && paymentStatusFilter.Pendiente}
+                              onCheckedChange={(checked) => {
+                                setPaymentStatusFilter({
+                                  Pagado: checked,
+                                  Pendiente: checked,
+                                });
+                              }}
+                            >
+                              Seleccionar todos
+                            </DropdownMenuCheckboxItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem
+                              checked={paymentStatusFilter.Pagado}
+                              onCheckedChange={(checked) =>
+                                setPaymentStatusFilter({
+                                  ...paymentStatusFilter,
+                                  Pagado: checked,
+                                })
+                              }
+                            >
+                              Pagado
+                            </DropdownMenuCheckboxItem>
+                            <DropdownMenuCheckboxItem
+                              checked={paymentStatusFilter.Pendiente}
+                              onCheckedChange={(checked) =>
+                                setPaymentStatusFilter({
+                                  ...paymentStatusFilter,
+                                  Pendiente: checked,
+                                })
+                              }
+                            >
+                              Pendiente
+                            </DropdownMenuCheckboxItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableHead>
                   )}
                   {visibleColumns.importePendiente && (
@@ -782,6 +912,11 @@ const Reservations = () => {
                   {visibleColumns.linkPago && (
                     <TableHead className="text-black font-bold whitespace-nowrap">
                       Link de Pago
+                    </TableHead>
+                  )}
+                  {visibleColumns.numeroExtras && (
+                    <TableHead className="text-black font-bold whitespace-nowrap">
+                      Nº Extras
                     </TableHead>
                   )}
                   {visibleColumns.extras && (
@@ -1129,6 +1264,22 @@ const Reservations = () => {
                                 No disponible
                               </span>
                             )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.numeroExtras && (
+                          <TableCell title={`${countExtras(reservation)} extras`}>
+                            <div className="flex items-center gap-2">
+                              {countExtras(reservation) > 0 ? (
+                                <>
+                                  <ShoppingBag className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                  <span className="font-medium">
+                                    {countExtras(reservation)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">0</span>
+                              )}
+                            </div>
                           </TableCell>
                         )}
                         {visibleColumns.extras && (
