@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { reservationsDb, isSupabaseConfigured } from './database';
 
 export interface AviratoCredentials {
   email: string;
@@ -624,6 +625,15 @@ export class AviratoService {
             reservation.payment_user = '';
           }
         }));
+      }
+
+      // Cache reservations to Supabase (non-blocking)
+      if (isSupabaseConfigured()) {
+        reservationsDb.bulkUpsert(allReservations).then((count) => {
+          logger.debug(`[Avirato] Cached ${count} reservations to database`);
+        }).catch((err) => {
+          logger.warn('[Avirato] Failed to cache reservations:', err);
+        });
       }
     }
 

@@ -3,14 +3,17 @@
  *
  * Handles synchronization of customers from Avirato to Last.app
  * Ensures hotel guests appear in Last.app's customer dropdown for restaurant reservations
+ *
+ * Now integrated with Supabase for persistent storage of sync logs and customer data.
  */
 
-import { format } from 'date-fns';
 import { aviratoService } from './avirato';
 import { lastAppService } from './lastapp';
 import { logger } from '@/utils/logger';
+import { syncDb, customersDb, settingsDb, isSupabaseConfigured } from './database';
 import type { AviratoReservation, AviratoClient } from './avirato';
 import type { CreateCustomerRequest, LastAppCustomer } from '@/types/lastapp.types';
+import type { CustomerInsert } from '@/types/supabase';
 import type {
   SyncOperationResult,
   SyncError,
@@ -25,18 +28,81 @@ export class CustomerSyncService {
   private lastSyncTime: Date | null = null;
   private syncInterval: number = 300000; // 5 minutes default
   private autoSyncTimer: NodeJS.Timeout | null = null;
+  private initialized: boolean = false;
 
   constructor() {
-    // Restore last sync time from localStorage
-    const savedTime = localStorage.getItem('last_sync_time');
-    if (savedTime) {
-      this.lastSyncTime = new Date(savedTime);
-    }
+    // Initialize asynchronously
+    this.initialize();
+  }
 
-    // Restore sync interval from localStorage
-    const savedInterval = localStorage.getItem('sync_interval');
-    if (savedInterval) {
-      this.syncInterval = parseInt(savedInterval);
+  /**
+   * Initialize service - load settings from database or localStorage
+   */
+  private async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    try {
+      // Try to load from Supabase first, fall back to localStorage
+      if (isSupabaseConfigured()) {
+        const [lastSync, interval] = await Promise.all([
+          syncDb.getLastSyncTime('sync_customers'),
+          settingsDb.get('sync_interval', 300000),
+        ]);
+
+        if (lastSync) {
+          this.lastSyncTime = lastSync;
+        }
+
+        this.syncInterval = interval as number;
+
+        // Migrate localStorage data to Supabase if needed
+        await this.migrateLocalStorageData();
+      } else {
+        // Fallback to localStorage
+        const savedTime = localStorage.getItem('last_sync_time');
+        if (savedTime) {
+          this.lastSyncTime = new Date(savedTime);
+        }
+
+        const savedInterval = localStorage.getItem('sync_interval');
+        if (savedInterval) {
+          this.syncInterval = parseInt(savedInterval);
+        }
+      }
+
+      this.initialized = true;
+    } catch (error) {
+      logger.error('[Sync] Initialization failed, using defaults:', error);
+
+      // Fallback to localStorage
+      const savedTime = localStorage.getItem('last_sync_time');
+      if (savedTime) {
+        this.lastSyncTime = new Date(savedTime);
+      }
+
+      const savedInterval = localStorage.getItem('sync_interval');
+      if (savedInterval) {
+        this.syncInterval = parseInt(savedInterval);
+      }
+
+      this.initialized = true;
+    }
+  }
+
+  /**
+   * Migrate data from localStorage to Supabase
+   */
+  private async migrateLocalStorageData(): Promise<void> {
+    try {
+      // Migrate sync logs
+      await syncDb.migrateFromLocalStorage();
+
+      // Migrate settings
+      await settingsDb.migrateFromLocalStorage();
+
+      logger.info('[Sync] LocalStorage migration completed');
+    } catch (error) {
+      logger.warn('[Sync] LocalStorage migration failed:', error);
     }
   }
 
@@ -95,10 +161,30 @@ export class CustomerSyncService {
           // Transform customer data
           const customerData = this.transformCustomerData(aviratoClient);
 
+          // Save customer to database first (pending status)
+          const customerDbRecord: CustomerInsert = {
+            phone_normalized: phone,
+            avirato_id: aviratoClient.client_doc || undefined,
+            name: aviratoClient.name || 'Cliente',
+            surname: aviratoClient.surname || undefined,
+            email: aviratoClient.email || undefined,
+            sync_status: 'pending',
+          };
+
+          // Upsert to database (non-blocking)
+          customersDb.upsert(customerDbRecord).catch((err) => {
+            logger.warn(`[Sync] Failed to save customer to DB: ${phone}`, err);
+          });
+
           try {
             // Try to create customer directly (no search - API doesn't support search parameter)
             const created = await this.createCustomerWithRetry(customerData);
             result.itemsSucceeded++;
+
+            // Update customer status in database
+            customersDb.updateSyncStatus(phone, 'synced', created.id).catch((err) => {
+              logger.warn(`[Sync] Failed to update customer status: ${phone}`, err);
+            });
 
             syncedCustomers.push({
               name: customerName,
@@ -118,6 +204,11 @@ export class CustomerSyncService {
             if (this.isDuplicateError(createError)) {
               // Customer already exists, mark as success
               result.itemsSucceeded++;
+
+              // Update customer status in database
+              customersDb.updateSyncStatus(phone, 'synced').catch((err) => {
+                logger.warn(`[Sync] Failed to update customer status: ${phone}`, err);
+              });
 
               syncedCustomers.push({
                 name: customerName,
@@ -150,6 +241,11 @@ export class CustomerSyncService {
 
           const customerName = `${aviratoClient.name || ''} ${aviratoClient.surname || ''}`.trim();
 
+          // Update customer status in database
+          customersDb.updateSyncStatus(phone, 'failed').catch((err) => {
+            logger.warn(`[Sync] Failed to update customer status: ${phone}`, err);
+          });
+
           failedCustomers.push({
             name: customerName,
             phone: phone,
@@ -179,16 +275,11 @@ export class CustomerSyncService {
         duration: `${result.duration}ms`
       });
 
-      // Save log
-      this.saveSyncLog({
-        id: result.id,
-        timestamp: new Date(),
-        level: 'info',
-        operation: 'sync_customers',
-        message: `Sincronizados ${result.itemsSucceeded}/${result.itemsProcessed} clientes`,
-        data: result,
-        duration: result.duration
-      });
+      // Save log to database (and localStorage as backup)
+      await syncDb.logSyncResult(
+        result,
+        `Sincronizados ${result.itemsSucceeded}/${result.itemsProcessed} clientes`
+      );
 
       return result;
 
@@ -199,15 +290,8 @@ export class CustomerSyncService {
 
       logger.error('[Sync] Synchronization failed:', error);
 
-      this.saveSyncLog({
-        id: result.id,
-        timestamp: new Date(),
-        level: 'error',
-        operation: 'sync_customers',
-        message: error.message,
-        error,
-        duration: result.duration
-      });
+      // Save error log to database
+      await syncDb.logSyncResult(result, error.message);
 
       throw error;
     }
@@ -356,7 +440,15 @@ export class CustomerSyncService {
    */
   startAutoSync(intervalMs: number): void {
     this.syncInterval = intervalMs;
+
+    // Save to both localStorage and database
     localStorage.setItem('sync_interval', intervalMs.toString());
+    settingsDb.set('sync_interval', intervalMs).catch((err) => {
+      logger.warn('[Sync] Failed to save sync_interval to database:', err);
+    });
+    settingsDb.set('auto_sync_enabled', true).catch((err) => {
+      logger.warn('[Sync] Failed to save auto_sync_enabled to database:', err);
+    });
 
     // Clear existing timer
     if (this.autoSyncTimer) {
@@ -386,18 +478,29 @@ export class CustomerSyncService {
     if (this.autoSyncTimer) {
       clearInterval(this.autoSyncTimer);
       this.autoSyncTimer = null;
+
+      // Update database setting
+      settingsDb.set('auto_sync_enabled', false).catch((err) => {
+        logger.warn('[Sync] Failed to save auto_sync_enabled to database:', err);
+      });
+
       logger.info('[Sync] Automatic sync stopped');
     }
   }
 
   /**
-   * Get synchronization logs from localStorage
+   * Get synchronization logs
+   * Returns logs from database if configured, otherwise from localStorage
+   * @param limit - Maximum number of logs to return
    * @returns Array of log entries (most recent first)
    */
-  getSyncLogs(): SyncLogEntry[] {
+  getSyncLogs(limit: number = 100): SyncLogEntry[] {
+    // For synchronous compatibility, return from localStorage
+    // The async version should be used when possible
     try {
       const logsJson = localStorage.getItem('sync_logs');
-      return logsJson ? JSON.parse(logsJson) : [];
+      const logs = logsJson ? JSON.parse(logsJson) : [];
+      return logs.slice(0, limit);
     } catch (error) {
       logger.error('[Sync] Error reading sync logs:', error);
       return [];
@@ -405,19 +508,35 @@ export class CustomerSyncService {
   }
 
   /**
-   * Save synchronization log entry to localStorage
-   * Maintains only the last 100 logs
+   * Get synchronization logs asynchronously from database
+   * @param limit - Maximum number of logs to return
+   * @returns Array of log entries (most recent first)
    */
-  private saveSyncLog(entry: SyncLogEntry): void {
+  async getSyncLogsAsync(limit: number = 100): Promise<SyncLogEntry[]> {
     try {
-      const logs = this.getSyncLogs();
-      logs.unshift(entry); // Add to beginning
+      const dbLogs = await syncDb.getLogs({ limit });
 
-      // Keep only last 100 logs
-      const trimmed = logs.slice(0, 100);
-      localStorage.setItem('sync_logs', JSON.stringify(trimmed));
+      // Convert database format to SyncLogEntry format
+      return dbLogs.map((log) => ({
+        id: log.id,
+        timestamp: new Date(log.created_at),
+        level: log.level as LogLevel,
+        operation: log.operation,
+        message: log.message,
+        data: {
+          itemsProcessed: log.items_processed,
+          itemsSucceeded: log.items_succeeded,
+          itemsFailed: log.items_failed,
+          status: log.status,
+          ...(log.metadata as object || {}),
+        },
+        error: log.error_details ? new Error(JSON.stringify(log.error_details)) : undefined,
+        duration: log.duration_ms || undefined,
+      }));
     } catch (error) {
-      logger.error('[Sync] Error saving sync log:', error);
+      logger.error('[Sync] Error reading sync logs from database:', error);
+      // Fallback to localStorage
+      return this.getSyncLogs(limit);
     }
   }
 
@@ -429,11 +548,61 @@ export class CustomerSyncService {
   }
 
   /**
+   * Get last sync time asynchronously from database
+   */
+  async getLastSyncTimeAsync(): Promise<Date | null> {
+    if (isSupabaseConfigured()) {
+      return syncDb.getLastSyncTime('sync_customers');
+    }
+    return this.lastSyncTime;
+  }
+
+  /**
    * Clear all sync logs
    */
   clearLogs(): void {
     localStorage.removeItem('sync_logs');
+
+    // Also clear from database
+    syncDb.clearAllLogs().catch((err) => {
+      logger.warn('[Sync] Failed to clear logs from database:', err);
+    });
+
     logger.info('[Sync] Logs cleared');
+  }
+
+  /**
+   * Clear all sync logs asynchronously
+   */
+  async clearLogsAsync(): Promise<void> {
+    localStorage.removeItem('sync_logs');
+    await syncDb.clearAllLogs();
+    logger.info('[Sync] Logs cleared');
+  }
+
+  /**
+   * Get sync statistics from database
+   */
+  async getStats(): Promise<{
+    totalSyncs: number;
+    successfulSyncs: number;
+    failedSyncs: number;
+    totalItemsSynced: number;
+    lastSyncTime: Date | null;
+  }> {
+    return syncDb.getStats();
+  }
+
+  /**
+   * Get customer sync statistics
+   */
+  async getCustomerStats(): Promise<{
+    pending: number;
+    synced: number;
+    failed: number;
+    total: number;
+  }> {
+    return customersDb.countByStatus();
   }
 }
 
