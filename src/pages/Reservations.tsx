@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -126,7 +127,7 @@ const formatOperatorName = (operatorName: string) => {
 };
 
 const Reservations = () => {
-  const { isLoading, reservations, fetchReservations, logout } = useAvirato();
+  const { isLoading, isEnriching, reservations, fetchReservations, logout } = useAvirato();
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<{
     from: Date | undefined;
@@ -195,20 +196,23 @@ const Reservations = () => {
     {}
   );
 
-  // Update channelFilters when reservations change
+  // Update channelFilters when reservations change (add new channels, preserve existing selections)
   useEffect(() => {
     const newFilters: Record<string, boolean> = {};
+    let hasChanges = false;
     uniqueChannels.forEach((channel) => {
       if (channelFilters[channel] === undefined) {
         newFilters[channel] = true;
+        hasChanges = true;
       } else {
         newFilters[channel] = channelFilters[channel];
       }
     });
-    if (Object.keys(newFilters).length > 0 && JSON.stringify(newFilters) !== JSON.stringify(channelFilters)) {
+    if (hasChanges && Object.keys(newFilters).length > 0) {
       setChannelFilters(newFilters);
     }
-  }, [reservations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueChannels.join(',')]);
 
   const handleLogout = () => {
     logout();
@@ -1231,62 +1235,76 @@ const Reservations = () => {
                           <TableCell
                             title={reservation.payment_method || "Pendiente"}
                           >
-                            <div className="flex items-center gap-2">
-                              {hasPaymentPending ? (
-                                <>
-                                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                  <span className="truncate block max-w-[60ch] text-muted-foreground">
-                                    Pendiente
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  {getPaymentIcon(
-                                    reservation.payment_method || "",
-                                  )}
-                                  <span className="truncate block max-w-[60ch]">
-                                    {truncateText(
-                                      reservation.payment_method || "N/A",
+                            {reservation.payment_method === undefined && isEnriching ? (
+                              <Skeleton className="h-4 w-20" />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {hasPaymentPending ? (
+                                  <>
+                                    <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                    <span className="truncate block max-w-[60ch] text-muted-foreground">
+                                      Pendiente
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {getPaymentIcon(
+                                      reservation.payment_method || "",
                                     )}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                                    <span className="truncate block max-w-[60ch]">
+                                      {truncateText(
+                                        reservation.payment_method || "N/A",
+                                      )}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
                         )}
                         {visibleColumns.fechaPago && (
                           <TableCell
                             title={reservation.payment_date || "Pendiente"}
                           >
-                            <span
-                              className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
-                            >
-                              {hasPaymentPending
-                                ? "Pendiente"
-                                : reservation.payment_date
-                                  ? safeDateFormatSimple(reservation.payment_date)
-                                  : "N/A"}
-                            </span>
+                            {reservation.payment_date === undefined && isEnriching ? (
+                              <Skeleton className="h-4 w-24" />
+                            ) : (
+                              <span
+                                className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
+                              >
+                                {hasPaymentPending
+                                  ? "Pendiente"
+                                  : reservation.payment_date
+                                    ? safeDateFormatSimple(reservation.payment_date)
+                                    : "N/A"}
+                              </span>
+                            )}
                           </TableCell>
                         )}
                         {visibleColumns.usuarioPago && (
                           <TableCell
                             title={reservation.payment_user || "Pendiente"}
                           >
-                            <span
-                              className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
-                            >
-                              {hasPaymentPending
-                                ? "Pendiente"
-                                : truncateText(reservation.payment_user || "N/A")}
-                            </span>
+                            {reservation.payment_user === undefined && isEnriching ? (
+                              <Skeleton className="h-4 w-16" />
+                            ) : (
+                              <span
+                                className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
+                              >
+                                {hasPaymentPending
+                                  ? "Pendiente"
+                                  : truncateText(reservation.payment_user || "N/A")}
+                              </span>
+                            )}
                           </TableCell>
                         )}
                         {visibleColumns.linkPago && (
                           <TableCell
                             title={reservation.payment_link || "No disponible"}
                           >
-                            {reservation.payment_link ? (
+                            {reservation.payment_link === undefined && isEnriching ? (
+                              <Skeleton className="h-6 w-20" />
+                            ) : reservation.payment_link ? (
                               <Button
                                 variant="outline"
                                 size="sm"

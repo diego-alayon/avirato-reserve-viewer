@@ -262,6 +262,10 @@ export class AviratoService {
   private tokenExpiry: Date | null = null;
   private has403Error = false; // Flag para loguear 403 solo una vez
 
+  constructor() {
+    this.loadTokenFromStorage();
+  }
+
   async authenticate(credentials: AviratoCredentials): Promise<AviratoAuthResponse> {
     logger.debug('Starting authentication process');
     
@@ -324,6 +328,11 @@ export class AviratoService {
     let pageCount = 0;
 
     while (hasNextPage && pageCount < 10) {
+      // Delay between pagination requests to avoid 429
+      if (pageCount > 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       const params = new URLSearchParams({
         web_code: webCode.toString(),
         start_date: startDateStr,
@@ -358,6 +367,14 @@ export class AviratoService {
           if (response.status === 401) {
             this.clearToken();
             throw new Error('Token expired. Please authenticate again.');
+          }
+          if (response.status === 429) {
+            // Rate limited — wait and retry this page
+            const retryAfter = parseInt(response.headers.get('Retry-After') || '5', 10);
+            const waitMs = Math.max(retryAfter, 5) * 1000;
+            logger.warn(`Rate limited on reservations page ${pageCount + 1}, waiting ${waitMs / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+            continue; // Retry same page
           }
           throw new Error(`Failed to fetch reservations: ${response.statusText}`);
         }
@@ -528,106 +545,100 @@ export class AviratoService {
         reservation.billing_lines = this.convertChargesToBillingLines(reservation);
       }
 
-      const startTime = Date.now();
+      // Estado de pago inicial usando datos ya disponibles en la respuesta
+      for (const reservation of allReservations) {
+        const reservationPrice = reservation.price || 0;
+        const isPaidField = reservation.is_paid || reservation.isPaid || false;
 
-      // Procesar reservas en lotes paralelos para mejor performance
-      const BATCH_SIZE = 20; // Procesar 20 reservas en paralelo
-      const batches: AviratoReservation[][] = [];
-
-      for (let i = 0; i < allReservations.length; i += BATCH_SIZE) {
-        batches.push(allReservations.slice(i, i + BATCH_SIZE));
-      }
-
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
-
-        // Procesar todas las reservas del lote en paralelo
-        await Promise.all(batch.map(async (reservation) => {
-          const reservationId = reservation.reservation_id || reservation.reservationId;
-          const reservationPrice = reservation.price || 0;
-          const isPaidField = reservation.is_paid || reservation.isPaid || false;
-
-          try {
-            // Get all payments for this reservation and payment link in parallel
-            const [payments, paymentLink] = await Promise.all([
-              this.getPaymentsByReservation(reservationId, webCode),
-              this.getPaymentLink(reservationId, webCode)
-            ]);
-
-            // Guardar el payment link
-            reservation.payment_link = paymentLink || '';
-
-            // Calculate total paid amount from registered payments
-            const totalPaid = payments.reduce((sum, payment) => sum + (payment.quantity || payment.amount || 0), 0);
-
-            if (totalPaid > 0) {
-              // Hay pagos registrados en el sistema - usar esos datos
-              const pendingAmount = reservationPrice - totalPaid;
-              const isFullyPaid = totalPaid >= reservationPrice;
-
-              reservation.billing_total = pendingAmount > 0 ? pendingAmount : 0;
-              reservation.is_fully_paid = isFullyPaid;
-
-              // Guardar array completo de pagos
-              reservation.payments = payments;
-
-              // Extraer datos del último pago (el más reciente)
-              if (payments.length > 0) {
-                // Ordenar pagos por fecha (más reciente primero)
-                const sortedPayments = [...payments].sort((a, b) => {
-                  const dateA = new Date(a.date || a.payment_date || '').getTime();
-                  const dateB = new Date(b.date || b.payment_date || '').getTime();
-                  return dateB - dateA; // Descendente (más reciente primero)
-                });
-
-                const lastPayment = sortedPayments[0];
-
-                // Usar los campos correctos de la API real
-                reservation.payment_method = lastPayment.type || lastPayment.payment_method || '';
-                reservation.payment_date = lastPayment.date || lastPayment.payment_date || '';
-                reservation.payment_user = lastPayment.user || lastPayment.user_name || lastPayment.username || lastPayment.created_by || '';
-
-                // Si hay múltiples pagos, consolidar métodos de pago
-                if (payments.length > 1) {
-                  const methods = [...new Set(payments.map(p => p.type || p.payment_method).filter(Boolean))];
-                  if (methods.length > 1) {
-                    reservation.payment_method = methods.join(', ');
-                  }
-                }
-              }
-            } else {
-              // No hay pagos registrados en el endpoint - consultar el campo is_paid de la reserva
-              // Esto puede significar que se pagó por otro medio (efectivo, transferencia directa, etc.)
-              if (isPaidField) {
-                // La reserva está marcada como pagada aunque no haya pagos registrados
-                reservation.billing_total = 0;
-                reservation.is_fully_paid = true;
-                reservation.payment_method = '';
-                reservation.payment_date = '';
-                reservation.payment_user = '';
-              } else {
-                // La reserva no está pagada
-                reservation.billing_total = reservationPrice;
-                reservation.is_fully_paid = false;
-                reservation.payment_method = '';
-                reservation.payment_date = '';
-                reservation.payment_user = '';
-              }
-            }
-          } catch (error) {
-            console.warn(`Could not fetch payments for reservation ${reservationId}:`, error);
-            // En caso de error, usar el campo is_paid como fallback
-            reservation.is_fully_paid = isPaidField;
-            reservation.billing_total = isPaidField ? 0 : reservationPrice;
-            reservation.payment_method = '';
-            reservation.payment_date = '';
-            reservation.payment_user = '';
-          }
-        }));
+        reservation.is_fully_paid = isPaidField;
+        reservation.billing_total = isPaidField ? 0 : reservationPrice;
       }
     }
 
     return consolidatedResponse;
+  }
+
+  /**
+   * Enrich a single reservation with payment details and payment link.
+   * Called on-demand (e.g. after initial load) to avoid 429 rate limits.
+   */
+  async enrichReservationPayments(reservation: AviratoReservation): Promise<AviratoReservation> {
+    const webCodes = this.getWebCodes();
+    if (!this.isAuthenticated() || webCodes.length === 0) return reservation;
+
+    const webCode = webCodes[0];
+    const reservationId = reservation.reservation_id || reservation.reservationId;
+    const reservationPrice = reservation.price || 0;
+    const isPaidField = reservation.is_paid || reservation.isPaid || false;
+
+    try {
+      const [payments, paymentLink] = await Promise.all([
+        this.getPaymentsByReservation(reservationId, webCode),
+        this.getPaymentLink(reservationId, webCode)
+      ]);
+
+      reservation.payment_link = paymentLink || '';
+      const totalPaid = payments.reduce((sum, p) => sum + (p.quantity || p.amount || 0), 0);
+
+      if (totalPaid > 0) {
+        const pendingAmount = reservationPrice - totalPaid;
+        reservation.billing_total = pendingAmount > 0 ? pendingAmount : 0;
+        reservation.is_fully_paid = totalPaid >= reservationPrice;
+        reservation.payments = payments;
+
+        if (payments.length > 0) {
+          const sortedPayments = [...payments].sort((a, b) => {
+            const dateA = new Date(a.date || a.payment_date || 0).getTime() || 0;
+            const dateB = new Date(b.date || b.payment_date || 0).getTime() || 0;
+            return dateB - dateA;
+          });
+          const last = sortedPayments[0];
+          reservation.payment_method = last.type || last.payment_method || '';
+          reservation.payment_date = last.date || last.payment_date || '';
+          reservation.payment_user = last.user || last.user_name || last.username || last.created_by || '';
+
+          if (payments.length > 1) {
+            const methods = [...new Set(payments.map(p => p.type || p.payment_method).filter(Boolean))];
+            if (methods.length > 1) reservation.payment_method = methods.join(', ');
+          }
+        }
+      } else {
+        reservation.is_fully_paid = isPaidField;
+        reservation.billing_total = isPaidField ? 0 : reservationPrice;
+      }
+    } catch {
+      // Silently fail — keep existing basic data
+    }
+
+    return reservation;
+  }
+
+  /**
+   * Enrich reservations in background with payment details.
+   * Processes one at a time with delay to respect API rate limits.
+   * Calls onUpdate after each reservation is enriched so the UI can refresh.
+   */
+  async enrichAllReservationsInBackground(
+    reservations: AviratoReservation[],
+    onUpdate: (updated: AviratoReservation[]) => void,
+    abortSignal?: AbortSignal
+  ): Promise<void> {
+    const DELAY_MS = 600; // ~1.6 req/s (2 calls per reservation)
+
+    for (let i = 0; i < reservations.length; i++) {
+      if (abortSignal?.aborted) return;
+
+      await this.enrichReservationPayments(reservations[i]);
+
+      // Notify UI every 3 reservations or on the last one
+      if ((i + 1) % 3 === 0 || i === reservations.length - 1) {
+        onUpdate([...reservations]);
+      }
+
+      if (i < reservations.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      }
+    }
   }
 
   /**
@@ -718,7 +729,7 @@ export class AviratoService {
     return billingResponse.status === 'success' ? billingResponse.data : [];
   }
 
-  async getPaymentsByReservation(reservationId: number, webCode: number): Promise<AviratoPayment[]> {
+  async getPaymentsByReservation(reservationId: number, webCode: number, _retryCount = 0): Promise<AviratoPayment[]> {
     if (!this.isAuthenticated()) {
       throw new Error('Not authenticated. Please authenticate first.');
     }
@@ -741,25 +752,26 @@ export class AviratoService {
 
     if (!response.ok) {
       if (response.status === 404) {
-        // No hay pagos registrados para esta reserva - esto es normal
         return [];
       }
       if (response.status === 403) {
-        // Sin permisos para acceder a pagos - loguear solo la primera vez
         if (!this.has403Error) {
-          console.warn(`⚠️ Payment endpoint returned 403 Forbidden. You may not have permissions to access payment data. Will use is_paid field from reservations as fallback.`);
+          logger.warn('Payment endpoint returned 403 Forbidden. Using is_paid field as fallback.');
           this.has403Error = true;
         }
         return [];
       }
-      // Si el endpoint no existe o hay otro error, devolvemos array vacío para no romper la UI
-      console.warn(`Failed to fetch payments for reservation ${reservationId}: ${response.status} ${response.statusText}`);
+      if (response.status === 429 && _retryCount < 2) {
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '3', 10);
+        await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 3) * 1000));
+        return this.getPaymentsByReservation(reservationId, webCode, _retryCount + 1);
+      }
+      logger.warn(`Failed to fetch payments for reservation ${reservationId}: ${response.status}`);
       return [];
     }
 
     try {
       const paymentsResponse: AviratoPaymentsResponse = await response.json();
-
       return paymentsResponse.status === 'success' ? paymentsResponse.data : [];
     } catch (error) {
       logger.warn(`Failed to parse payments response for reservation ${reservationId}:`, error);
@@ -767,7 +779,7 @@ export class AviratoService {
     }
   }
 
-  async getPaymentLink(reservationId: number, webCode: number): Promise<string | null> {
+  async getPaymentLink(reservationId: number, webCode: number, _retryCount = 0): Promise<string | null> {
     if (!this.token) {
       logger.warn('Cannot fetch payment link: No authentication token available');
       return null;
@@ -792,17 +804,18 @@ export class AviratoService {
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.warn(`Payment link not found for reservation ${reservationId}`);
           return null;
         }
-        console.warn(`Failed to fetch payment link for reservation ${reservationId}: ${response.status} ${response.statusText}`);
+        if (response.status === 429 && _retryCount < 2) {
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '3', 10);
+          await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 3) * 1000));
+          return this.getPaymentLink(reservationId, webCode, _retryCount + 1);
+        }
+        logger.warn(`Failed to fetch payment link for reservation ${reservationId}: ${response.status}`);
         return null;
       }
 
       const data = await response.json();
-
-      // Log completo de la respuesta para debugging
-      console.log(`🔍 Payment link response for reservation ${reservationId}:`, JSON.stringify(data, null, 2));
 
       let paymentLink = null;
 

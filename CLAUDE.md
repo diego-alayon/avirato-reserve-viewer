@@ -28,7 +28,22 @@ Tipos válidos: feat, fix, docs, style, refactor, test, chore
 - `npm run dev` - Servidor de desarrollo (puerto 8080)
 - `npm run build` - Build de producción
 - `npm run lint` - Linting
+- `npm run test` - Tests unitarios (vitest)
+- `npm run test:watch` - Tests en modo watch
+- `npm run test:coverage` - Tests con reporte de cobertura
+- `npm run qa` - QA completo: lint + build + test
 - `vercel --prod --yes` - Desplegar a producción en Vercel
+
+## Skills de QA (Claude Code)
+
+- `/code-review` - Análisis de código: seguridad, types, React patterns, API handling
+- `/qa` - Gate de calidad completo antes de deploy (bloquea si falla)
+- `/test <archivo>` - Genera tests unitarios automáticos para un archivo
+
+## Pre-Deploy
+
+**IMPORTANTE**: Antes de cualquier deploy a producción, ejecutar `/qa` o como mínimo `npm run qa`.
+Si los tests fallan → NO desplegar.
 
 ## Despliegue en Vercel
 

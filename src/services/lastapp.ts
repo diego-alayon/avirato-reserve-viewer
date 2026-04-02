@@ -324,10 +324,11 @@ export class LastAppService {
         logger.warn('[LastApp] 404 Not Found:', errorMessage);
         throw new Error('Recurso no encontrado.');
 
-      case 429:
+      case 429: {
         logger.warn('[LastApp] 429 Too Many Requests - Rate limit exceeded');
         const retryAfter = response.headers.get('Retry-After') || '60';
         throw new Error(`Rate limit excedido. Por favor, espera ${retryAfter} segundos.`);
+      }
 
       case 500:
       case 502:

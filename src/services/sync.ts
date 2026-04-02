@@ -257,7 +257,7 @@ export class CustomerSyncService {
       errorMessage.includes('unique constraint') ||
       errorMessage.includes('unique_violation') ||
       (errorMessage.includes('phone') && errorMessage.includes('exists')) ||
-      errorMessage.includes('phonenumber') && errorMessage.includes('already') ||
+      (errorMessage.includes('phonenumber') && errorMessage.includes('already')) ||
       error.status === 409 || // HTTP 409 Conflict
       error.code === 'DUPLICATE_ENTRY' ||
       error.code === 'ER_DUP_ENTRY'
@@ -286,7 +286,7 @@ export class CustomerSyncService {
       surname: lastName || undefined,
       email: aviratoClient.email || undefined,
       internalNote: aviratoClient.observations || undefined,
-      externalId: aviratoClient.id?.toString() || undefined
+      externalId: aviratoClient.client_doc || undefined
     };
   }
 

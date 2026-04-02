@@ -103,7 +103,7 @@ export const useSync = () => {
         description: `Sincronización automática cada ${intervalMs / 60000} minutos`
       });
     }
-  }, [isAutoSyncEnabled, toast]);
+  }, [isAutoSyncEnabled, syncInterval, toast]);
 
   /**
    * Toggle automatic synchronization on/off

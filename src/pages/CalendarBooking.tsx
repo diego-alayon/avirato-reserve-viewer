@@ -104,14 +104,16 @@ const CalendarBooking = () => {
     if (isAuthenticated && spaces.length === 0 && !isLoadingSpaces) {
       loadSpaces();
     }
-  }, [isAuthenticated]); // Minimal dependencies - only run when auth changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, spaces.length, isLoadingSpaces, loadSpaces]);
 
   // Load prices when spaces are loaded or month changes
   useEffect(() => {
     if (isAuthenticated && spaces.length > 0 && !isLoadingPrices) {
       loadPrices(viewStartDate, viewEndDate);
     }
-  }, [isAuthenticated, spaces.length, selectedMonth, selectedYear]); // Load when month/year changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, spaces.length, selectedMonth, selectedYear, viewStartDate, viewEndDate, loadPrices]);
 
   // Load reservations when month/year changes
   useEffect(() => {
@@ -124,7 +126,8 @@ const CalendarBooking = () => {
     const fetchEnd = addDays(lastOfMonth, 35);
 
     loadReservationsForDateRange(fetchStart, fetchEnd);
-  }, [selectedMonth, selectedYear, isAuthenticated]); // Only these dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth, selectedYear, isAuthenticated, loadReservationsForDateRange]);
 
   // Process reservations into blocks mapped by space_id
   const reservationsBySpaceId = useMemo(() => {
