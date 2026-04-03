@@ -559,8 +559,35 @@ export class AviratoService {
   }
 
   /**
+   * Get cached payment data from sessionStorage.
+   */
+  private getPaymentCache(reservationId: number): { payments: AviratoPayment[]; paymentLink: string | null } | null {
+    try {
+      const cached = sessionStorage.getItem(`pay_${reservationId}`);
+      if (!cached) return null;
+      const parsed = JSON.parse(cached);
+      // Cache valid for 10 minutes
+      if (Date.now() - parsed.ts > 10 * 60 * 1000) {
+        sessionStorage.removeItem(`pay_${reservationId}`);
+        return null;
+      }
+      return { payments: parsed.p, paymentLink: parsed.l };
+    } catch {
+      return null;
+    }
+  }
+
+  private setPaymentCache(reservationId: number, payments: AviratoPayment[], paymentLink: string | null): void {
+    try {
+      sessionStorage.setItem(`pay_${reservationId}`, JSON.stringify({ p: payments, l: paymentLink, ts: Date.now() }));
+    } catch {
+      // sessionStorage full — ignore
+    }
+  }
+
+  /**
    * Enrich a single reservation with payment details and payment link.
-   * Called on-demand (e.g. after initial load) to avoid 429 rate limits.
+   * Uses sessionStorage cache to avoid redundant API calls.
    */
   async enrichReservationPayments(reservation: AviratoReservation): Promise<AviratoReservation> {
     const webCodes = this.getWebCodes();
@@ -571,11 +598,33 @@ export class AviratoService {
     const reservationPrice = reservation.price || 0;
     const isPaidField = reservation.is_paid || reservation.isPaid || false;
 
+    // Skip API calls entirely if payment endpoint is known to return 403
+    if (this.has403Error) {
+      reservation.payment_method = '';
+      reservation.payment_date = '';
+      reservation.payment_user = '';
+      reservation.payment_link = '';
+      reservation.is_fully_paid = isPaidField;
+      reservation.billing_total = isPaidField ? 0 : reservationPrice;
+      return reservation;
+    }
+
     try {
-      const [payments, paymentLink] = await Promise.all([
-        this.getPaymentsByReservation(reservationId, webCode),
-        this.getPaymentLink(reservationId, webCode)
-      ]);
+      // Check cache first
+      const cached = this.getPaymentCache(reservationId);
+      let payments: AviratoPayment[];
+      let paymentLink: string | null;
+
+      if (cached) {
+        payments = cached.payments;
+        paymentLink = cached.paymentLink;
+      } else {
+        [payments, paymentLink] = await Promise.all([
+          this.getPaymentsByReservation(reservationId, webCode),
+          this.getPaymentLink(reservationId, webCode)
+        ]);
+        this.setPaymentCache(reservationId, payments, paymentLink);
+      }
 
       reservation.payment_link = paymentLink || '';
       const totalPaid = payments.reduce((sum, p) => sum + (p.quantity || p.amount || 0), 0);
@@ -614,31 +663,52 @@ export class AviratoService {
   }
 
   /**
-   * Enrich reservations in background with payment details.
-   * Processes one at a time with delay to respect API rate limits.
-   * Calls onUpdate after each reservation is enriched so the UI can refresh.
+   * Enrich all reservations using a concurrent pool.
+   * Keeps MAX_CONCURRENT requests in-flight at all times for maximum throughput.
+   * Updates UI as each individual reservation completes — no waiting for batches.
    */
   async enrichAllReservationsInBackground(
     reservations: AviratoReservation[],
     onUpdate: (updated: AviratoReservation[]) => void,
     abortSignal?: AbortSignal
   ): Promise<void> {
-    const DELAY_MS = 600; // ~1.6 req/s (2 calls per reservation)
+    const MAX_CONCURRENT = 10; // 10 reservations = 20 API calls in-flight
+    let completed = 0;
+    let running = 0;
+    let index = 0;
 
-    for (let i = 0; i < reservations.length; i++) {
-      if (abortSignal?.aborted) return;
+    return new Promise<void>((resolve) => {
+      const runNext = () => {
+        // Check if all done
+        if (completed >= reservations.length) {
+          onUpdate([...reservations]);
+          resolve();
+          return;
+        }
 
-      await this.enrichReservationPayments(reservations[i]);
+        // Launch tasks up to concurrency limit
+        while (running < MAX_CONCURRENT && index < reservations.length) {
+          if (abortSignal?.aborted) { resolve(); return; }
 
-      // Notify UI every 3 reservations or on the last one
-      if ((i + 1) % 3 === 0 || i === reservations.length - 1) {
-        onUpdate([...reservations]);
-      }
+          const currentIndex = index++;
+          running++;
 
-      if (i < reservations.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
-      }
-    }
+          this.enrichReservationPayments(reservations[currentIndex]).then(() => {
+            running--;
+            completed++;
+
+            // Update UI every 3 completed or on last
+            if (completed % 3 === 0 || completed >= reservations.length) {
+              onUpdate([...reservations]);
+            }
+
+            runNext();
+          });
+        }
+      };
+
+      runNext();
+    });
   }
 
   /**
@@ -762,8 +832,8 @@ export class AviratoService {
         return [];
       }
       if (response.status === 429 && _retryCount < 2) {
-        const retryAfter = parseInt(response.headers.get('Retry-After') || '3', 10);
-        await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 3) * 1000));
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         return this.getPaymentsByReservation(reservationId, webCode, _retryCount + 1);
       }
       logger.warn(`Failed to fetch payments for reservation ${reservationId}: ${response.status}`);
@@ -807,8 +877,8 @@ export class AviratoService {
           return null;
         }
         if (response.status === 429 && _retryCount < 2) {
-          const retryAfter = parseInt(response.headers.get('Retry-After') || '3', 10);
-          await new Promise(resolve => setTimeout(resolve, Math.max(retryAfter, 3) * 1000));
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
           return this.getPaymentLink(reservationId, webCode, _retryCount + 1);
         }
         logger.warn(`Failed to fetch payment link for reservation ${reservationId}: ${response.status}`);
