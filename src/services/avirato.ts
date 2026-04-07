@@ -260,7 +260,8 @@ export class AviratoService {
   private token: string | null = null;
   private webCodes: number[] = [];
   private tokenExpiry: Date | null = null;
-  private has403Error = false; // Flag para loguear 403 solo una vez
+  private has403Error = false; // Flag para loguear 403 solo una vez (payments endpoint only)
+  private hasUrls403Error = false; // Flag for urls endpoint 403
 
   constructor() {
     this.loadTokenFromStorage();
@@ -598,17 +599,6 @@ export class AviratoService {
     const reservationPrice = reservation.price || 0;
     const isPaidField = reservation.is_paid || reservation.isPaid || false;
 
-    // Skip API calls entirely if payment endpoint is known to return 403
-    if (this.has403Error) {
-      reservation.payment_method = '';
-      reservation.payment_date = '';
-      reservation.payment_user = '';
-      reservation.payment_link = '';
-      reservation.is_fully_paid = isPaidField;
-      reservation.billing_total = isPaidField ? 0 : reservationPrice;
-      return reservation;
-    }
-
     try {
       // Check cache first
       const cached = this.getPaymentCache(reservationId);
@@ -619,10 +609,15 @@ export class AviratoService {
         payments = cached.payments;
         paymentLink = cached.paymentLink;
       } else {
-        [payments, paymentLink] = await Promise.all([
-          this.getPaymentsByReservation(reservationId, webCode),
-          this.getPaymentLink(reservationId, webCode)
-        ]);
+        // Fetch independently: 403 on payments must NOT block payment link
+        const paymentsPromise = this.has403Error
+          ? Promise.resolve([] as AviratoPayment[])
+          : this.getPaymentsByReservation(reservationId, webCode);
+        const linkPromise = this.hasUrls403Error
+          ? Promise.resolve(null as string | null)
+          : this.getPaymentLink(reservationId, webCode);
+
+        [payments, paymentLink] = await Promise.all([paymentsPromise, linkPromise]);
         this.setPaymentCache(reservationId, payments, paymentLink);
       }
 
@@ -672,7 +667,7 @@ export class AviratoService {
     onUpdate: (updated: AviratoReservation[]) => void,
     abortSignal?: AbortSignal
   ): Promise<void> {
-    const MAX_CONCURRENT = 10; // 10 reservations = 20 API calls in-flight
+    const MAX_CONCURRENT = 6; // 6 reservations = 12 API calls in-flight (safe for prod rate limits)
     let completed = 0;
     let running = 0;
     let index = 0;
@@ -831,8 +826,8 @@ export class AviratoService {
         }
         return [];
       }
-      if (response.status === 429 && _retryCount < 2) {
-        const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+      if (response.status === 429 && _retryCount < 3) {
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '2', 10);
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
         return this.getPaymentsByReservation(reservationId, webCode, _retryCount + 1);
       }
@@ -876,8 +871,15 @@ export class AviratoService {
         if (response.status === 404) {
           return null;
         }
-        if (response.status === 429 && _retryCount < 2) {
-          const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+        if (response.status === 403) {
+          if (!this.hasUrls403Error) {
+            logger.warn('Payment URLs endpoint returned 403 Forbidden.');
+            this.hasUrls403Error = true;
+          }
+          return null;
+        }
+        if (response.status === 429 && _retryCount < 3) {
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '2', 10);
           await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
           return this.getPaymentLink(reservationId, webCode, _retryCount + 1);
         }
