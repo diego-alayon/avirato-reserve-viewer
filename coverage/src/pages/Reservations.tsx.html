@@ -32,7 +32,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/372</span>
+                <span class='fraction'>0/388</span>
             </div>
         
             
@@ -1498,7 +1498,22 @@
 <a name='L1433'></a><a href='#L1433'>1433</a>
 <a name='L1434'></a><a href='#L1434'>1434</a>
 <a name='L1435'></a><a href='#L1435'>1435</a>
-<a name='L1436'></a><a href='#L1436'>1436</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1436'></a><a href='#L1436'>1436</a>
+<a name='L1437'></a><a href='#L1437'>1437</a>
+<a name='L1438'></a><a href='#L1438'>1438</a>
+<a name='L1439'></a><a href='#L1439'>1439</a>
+<a name='L1440'></a><a href='#L1440'>1440</a>
+<a name='L1441'></a><a href='#L1441'>1441</a>
+<a name='L1442'></a><a href='#L1442'>1442</a>
+<a name='L1443'></a><a href='#L1443'>1443</a>
+<a name='L1444'></a><a href='#L1444'>1444</a>
+<a name='L1445'></a><a href='#L1445'>1445</a>
+<a name='L1446'></a><a href='#L1446'>1446</a>
+<a name='L1447'></a><a href='#L1447'>1447</a>
+<a name='L1448'></a><a href='#L1448'>1448</a>
+<a name='L1449'></a><a href='#L1449'>1449</a>
+<a name='L1450'></a><a href='#L1450'>1450</a>
+<a name='L1451'></a><a href='#L1451'>1451</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1559,6 +1574,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2577,6 +2593,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2935,6 +2965,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -3061,7 +3092,7 @@ const <span class="cstat-no" title="statement not covered" ><span class="fstat-n
 };
 &nbsp;
 const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >Reservations = () =&gt; {</span></span>
-  const { isLoading, reservations, fetchReservations, <span class="cstat-no" title="statement not covered" >logout } = useAvirato();</span>
+  const { isLoading, isEnriching, reservations, fetchReservations, <span class="cstat-no" title="statement not covered" >logout } = useAvirato();</span>
   const <span class="cstat-no" title="statement not covered" >navigate = useNavigate();</span>
   const [dateRange, <span class="cstat-no" title="statement not covered" >setDateRange] = useState&lt;{</span>
     from: Date | undefined;
@@ -4169,62 +4200,76 @@ const <span class="cstat-no" title="statement not covered" ><span class="fstat-n
                           &lt;TableCell
                             title={reservation.payment_method || "Pendiente"}
                           &gt;
-                            &lt;div className="flex items-center gap-2"&gt;
-                              {hasPaymentPending ? (
-                                &lt;&gt;
-                                  &lt;Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" /&gt;
-                                  &lt;span className="truncate block max-w-[60ch] text-muted-foreground"&gt;
-                                    Pendiente
-                                  &lt;/span&gt;
-                                &lt;/&gt;
-                              ) : (
-                                &lt;&gt;
-                                  {getPaymentIcon(
-                                    reservation.payment_method || "",
-                                  )}
-                                  &lt;span className="truncate block max-w-[60ch]"&gt;
-                                    {truncateText(
-                                      reservation.payment_method || "N/A",
+                            {reservation.payment_method === undefined &amp;&amp; isEnriching ? (
+                              &lt;Skeleton className="h-4 w-20" /&gt;
+                            ) : (
+                              &lt;div className="flex items-center gap-2"&gt;
+                                {hasPaymentPending ? (
+                                  &lt;&gt;
+                                    &lt;Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" /&gt;
+                                    &lt;span className="truncate block max-w-[60ch] text-muted-foreground"&gt;
+                                      Pendiente
+                                    &lt;/span&gt;
+                                  &lt;/&gt;
+                                ) : (
+                                  &lt;&gt;
+                                    {getPaymentIcon(
+                                      reservation.payment_method || "",
                                     )}
-                                  &lt;/span&gt;
-                                &lt;/&gt;
-                              )}
-                            &lt;/div&gt;
+                                    &lt;span className="truncate block max-w-[60ch]"&gt;
+                                      {truncateText(
+                                        reservation.payment_method || "N/A",
+                                      )}
+                                    &lt;/span&gt;
+                                  &lt;/&gt;
+                                )}
+                              &lt;/div&gt;
+                            )}
                           &lt;/TableCell&gt;
                         )}
                         {visibleColumns.fechaPago &amp;&amp; (
                           &lt;TableCell
                             title={reservation.payment_date || "Pendiente"}
                           &gt;
-                            &lt;span
-                              className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
-                            &gt;
-                              {hasPaymentPending
-                                ? "Pendiente"
-                                : reservation.payment_date
-                                  ? safeDateFormatSimple(reservation.payment_date)
-                                  : "N/A"}
-                            &lt;/span&gt;
+                            {reservation.payment_date === undefined &amp;&amp; isEnriching ? (
+                              &lt;Skeleton className="h-4 w-24" /&gt;
+                            ) : (
+                              &lt;span
+                                className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
+                              &gt;
+                                {hasPaymentPending
+                                  ? "Pendiente"
+                                  : reservation.payment_date
+                                    ? safeDateFormatSimple(reservation.payment_date)
+                                    : "N/A"}
+                              &lt;/span&gt;
+                            )}
                           &lt;/TableCell&gt;
                         )}
                         {visibleColumns.usuarioPago &amp;&amp; (
                           &lt;TableCell
                             title={reservation.payment_user || "Pendiente"}
                           &gt;
-                            &lt;span
-                              className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
-                            &gt;
-                              {hasPaymentPending
-                                ? "Pendiente"
-                                : truncateText(reservation.payment_user || "N/A")}
-                            &lt;/span&gt;
+                            {reservation.payment_user === undefined &amp;&amp; isEnriching ? (
+                              &lt;Skeleton className="h-4 w-16" /&gt;
+                            ) : (
+                              &lt;span
+                                className={`truncate block max-w-[60ch] ${hasPaymentPending ? "text-muted-foreground" : ""}`}
+                              &gt;
+                                {hasPaymentPending
+                                  ? "Pendiente"
+                                  : truncateText(reservation.payment_user || "N/A")}
+                              &lt;/span&gt;
+                            )}
                           &lt;/TableCell&gt;
                         )}
                         {visibleColumns.linkPago &amp;&amp; (
                           &lt;TableCell
                             title={reservation.payment_link || "No disponible"}
                           &gt;
-                            {reservation.payment_link ? (
+                            {reservation.payment_link === undefined &amp;&amp; isEnriching ? (
+                              &lt;Skeleton className="h-6 w-20" /&gt;
+                            ) : reservation.payment_link ? (
                               &lt;Button
                                 variant="outline"
                                 size="sm"
@@ -4375,7 +4420,7 @@ export default Reservations;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-23T21:59:16.129Z
+                at 2026-04-03T18:22:04.419Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
